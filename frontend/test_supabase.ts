@@ -1,9 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
-dotenv.config({ path: '.env.local' });
+import * as fs from 'fs';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const envFile = fs.readFileSync('.env.local', 'utf8');
+const env = Object.fromEntries(
+  envFile.split('\n')
+    .filter(line => line && !line.startsWith('#'))
+    .map(line => {
+      const parts = line.split('=');
+      return [parts[0], parts.slice(1).join('=')];
+    })
+);
+
+const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
   console.error('Missing Supabase environment variables');
@@ -15,7 +24,6 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function testConnection() {
   console.log('Testing connection to Supabase...');
   
-  // Try to query the merchants table to see if the schema was applied
   const { data, error } = await supabase.from('merchants').select('*').limit(1);
   
   if (error) {
