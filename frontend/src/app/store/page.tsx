@@ -8,51 +8,73 @@ import {
   Button,
   Badge,
   TextInput,
-  // Icons
   SparklesIcon,
   ShoppingBagIcon,
   SearchIcon,
   CheckCircleIcon,
   ShieldIcon,
   ArrowRightIcon,
-  PackageIcon,
   UserIcon,
   BoxIcon,
   RefreshIcon,
   HeadphoneIcon,
   MapPinIcon,
-  ZapIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
 
-// ── Data ──────────────────────────────────────────────────────────────────────
+// ── Supabase Storage Base URL ────────────────────────────────────────────────
+const CDN = 'https://rymdnhuantqqfcnnoeud.supabase.co/storage/v1/object/public/store-assets';
 
+const IMGS = {
+  hero: `${CDN}/hero-collage.jpg`,
+  aiRobot: `${CDN}/ai-robot.jpg`,
+  products: {
+    airpods: `${CDN}/prod-airpods.jpg`,
+    macbook: `${CDN}/prod-macbook.jpg`,
+    sony: `${CDN}/prod-sony-wh.jpg`,
+    iphone: `${CDN}/prod-iphone.jpg`,
+    boat: `${CDN}/prod-boat.jpg`,
+    jbl: `${CDN}/prod-jbl.jpg`,
+  },
+  categories: {
+    electronics: `${CDN}/cat-electronics.jpg`,
+    laptops: `${CDN}/cat-laptops.jpg`,
+    audio: `${CDN}/cat-audio.jpg`,
+    accessories: `${CDN}/cat-accessories.jpg`,
+    gaming: `${CDN}/cat-gaming.jpg`,
+    mobile: `${CDN}/prod-iphone.jpg`,       // reuse product image
+    office: `${CDN}/cat-accessories.jpg`,    // reuse accessories
+    wearables: `${CDN}/prod-boat.jpg`,       // reuse wearable product
+  },
+};
+
+// ── Data ──────────────────────────────────────────────────────────────────────
 const categories = [
-  { name: 'Electronics', count: '120+', emoji: '🖥️' },
-  { name: 'Laptops', count: '85+', emoji: '💻' },
-  { name: 'Audio', count: '60+', emoji: '🎧' },
-  { name: 'Accessories', count: '200+', emoji: '🖱️' },
-  { name: 'Gaming', count: '70+', emoji: '🎮' },
-  { name: 'Mobile', count: '95+', emoji: '📱' },
-  { name: 'Office', count: '45+', emoji: '🖨️' },
-  { name: 'Wearables', count: '50+', emoji: '⌚' },
+  { name: 'Electronics', count: '120+', img: IMGS.categories.electronics },
+  { name: 'Laptops', count: '85+', img: IMGS.categories.laptops },
+  { name: 'Audio', count: '60+', img: IMGS.categories.audio },
+  { name: 'Accessories', count: '200+', img: IMGS.categories.accessories },
+  { name: 'Gaming', count: '70+', img: IMGS.categories.gaming },
+  { name: 'Mobile', count: '95+', img: IMGS.categories.mobile },
+  { name: 'Office', count: '45+', img: IMGS.categories.office },
+  { name: 'Wearables', count: '50+', img: IMGS.categories.wearables },
 ];
 
 const featuredProducts = [
-  { id: 1, name: 'Apple AirPods Pro (2nd Gen)', price: '₹24,900', rating: '4.6', reviews: '2.1K', stock: 'In stock', stockColor: 'positive' as const, badge: 'Bestseller', badgeColor: 'notice' as const },
-  { id: 2, name: 'MacBook Air M2 (13-inch)', price: '₹89,900', oldPrice: '₹99,900', rating: '4.7', reviews: '1.2K', stock: 'In stock', stockColor: 'positive' as const, badge: '10% OFF', badgeColor: 'positive' as const },
-  { id: 3, name: 'Sony WH-1000XM5', price: '₹29,990', rating: '4.5', reviews: '980', stock: 'In stock', stockColor: 'positive' as const, badge: 'New', badgeColor: 'information' as const },
-  { id: 4, name: 'iPhone 15 (128GB)', price: '₹69,900', rating: '4.7', reviews: '3.2K', stock: 'Low stock', stockColor: 'notice' as const, badge: 'Bestseller', badgeColor: 'notice' as const },
-  { id: 5, name: 'boAt Wave Prime 47', price: '₹2,199', oldPrice: '₹2,599', rating: '4.4', reviews: '1.1K', stock: 'In stock', stockColor: 'positive' as const, badge: '15% OFF', badgeColor: 'positive' as const },
-  { id: 6, name: 'JBL Flip 6 Bluetooth Speaker', price: '₹9,999', rating: '4.6', reviews: '870', stock: 'In stock', stockColor: 'positive' as const, badge: '', badgeColor: 'neutral' as const },
+  { id: 1, name: 'Apple AirPods Pro (2nd Gen)', price: '₹24,900', rating: '4.6', reviews: '2.1K', stock: 'In stock', stockOk: true, badge: 'Bestseller', badgeColor: 'notice' as const, img: IMGS.products.airpods },
+  { id: 2, name: 'MacBook Air M2 (13-inch)', price: '₹89,900', oldPrice: '₹99,900', rating: '4.7', reviews: '1.2K', stock: 'In stock', stockOk: true, badge: '10% OFF', badgeColor: 'positive' as const, img: IMGS.products.macbook },
+  { id: 3, name: 'Sony WH-1000XM5', price: '₹29,990', rating: '4.5', reviews: '980', stock: 'In stock', stockOk: true, badge: 'New', badgeColor: 'information' as const, img: IMGS.products.sony },
+  { id: 4, name: 'iPhone 15 (128GB)', price: '₹69,900', rating: '4.7', reviews: '3.2K', stock: 'Low stock', stockOk: false, badge: 'Bestseller', badgeColor: 'notice' as const, img: IMGS.products.iphone },
+  { id: 5, name: 'boAt Wave Prime 47', price: '₹2,199', oldPrice: '₹2,599', rating: '4.4', reviews: '1.1K', stock: 'In stock', stockOk: true, badge: '15% OFF', badgeColor: 'positive' as const, img: IMGS.products.boat },
+  { id: 6, name: 'JBL Flip 6 Bluetooth Speaker', price: '₹9,999', rating: '4.6', reviews: '870', stock: 'In stock', stockOk: true, badge: '', badgeColor: 'neutral' as const, img: IMGS.products.jbl },
 ];
 
 const bestSellers = [
-  { rank: 1, name: 'Apple AirPods Pro (2nd Gen)', price: '₹24,900', rating: '4.6', emoji: '🎧' },
-  { rank: 2, name: 'boAt Rockerz 450', price: '₹1,599', rating: '4.4', emoji: '🎧' },
-  { rank: 3, name: 'Samsung Galaxy S24', price: '₹59,999', rating: '4.6', emoji: '📱' },
-  { rank: 4, name: 'Noise ColorFit Pro 5', price: '₹3,499', rating: '4.3', emoji: '⌚' },
-  { rank: 5, name: 'Dell 15 Laptop', price: '₹45,990', rating: '4.5', emoji: '💻' },
+  { rank: 1, name: 'Apple AirPods Pro (2nd Gen)', price: '₹24,900', rating: '4.6', img: IMGS.products.airpods },
+  { rank: 2, name: 'boAt Rockerz 450', price: '₹1,599', rating: '4.4', img: IMGS.products.boat },
+  { rank: 3, name: 'Samsung Galaxy S24', price: '₹59,999', rating: '4.6', img: IMGS.products.iphone },
+  { rank: 4, name: 'Noise ColorFit Pro 5', price: '₹3,499', rating: '4.3', img: IMGS.products.boat },
+  { rank: 5, name: 'Dell 15 Laptop', price: '₹45,990', rating: '4.5', img: IMGS.products.macbook },
 ];
 
 const aiPrompts = [
@@ -63,38 +85,12 @@ const aiPrompts = [
 
 const navLinks = ['Electronics', 'Laptops', 'Audio', 'Accessories', 'Mobile', 'Gaming', 'Office', 'Wearables', 'Deals'];
 
-// ── Star Rating Component ─────────────────────────────────────────────────────
-function StarRating({ rating }: { rating: string }) {
-  return (
-    <Box display="flex" alignItems="center" gap="spacing.1">
-      <Text size="xsmall" color="interactive.text.notice.normal" weight="semibold">★ {rating}</Text>
-    </Box>
-  );
-}
-
-// ── Product Image Placeholder ─────────────────────────────────────────────────
-function ProductImage({ emoji }: { emoji?: string }) {
-  return (
-    <Box
-      height="180px"
-      backgroundColor="surface.background.gray.subtle"
-      borderRadius="medium"
-      display="flex"
-      alignItems="center"
-      justifyContent="center"
-      marginBottom="spacing.3"
-    >
-      <Text size="2xlarge">{emoji || '📦'}</Text>
-    </Box>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function StoreHomePage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <Box backgroundColor="surface.background.gray.subtle" minHeight="100vh">
+    <Box backgroundColor="#F8F9FA" minHeight="100vh">
 
       {/* ── Announcement Strip ── */}
       <Box
@@ -144,7 +140,7 @@ export default function StoreHomePage() {
           >
             <ShoppingBagIcon size="small" color="interactive.icon.staticWhite.normal" />
           </Box>
-          <Text size="medium" weight="semibold" color="surface.text.gray.onSubtle">Acme Store</Text>
+          <Text size="medium" weight="semibold">Acme Store</Text>
         </Box>
 
         {/* Search */}
@@ -158,31 +154,18 @@ export default function StoreHomePage() {
           />
         </Box>
 
-        {/* Nav Links */}
+        {/* Nav + Actions */}
         <Box display="flex" alignItems="center" gap="spacing.4" flexShrink={0}>
           <Button variant="tertiary" size="small">Categories</Button>
           <Button variant="tertiary" size="small">Products</Button>
-          <Button
-            variant="secondary"
-            size="small"
-            icon={SparklesIcon}
-            iconPosition="left"
-          >
-            Ask AI
-          </Button>
+          <Button variant="secondary" size="small" icon={SparklesIcon} iconPosition="left">Ask AI</Button>
           <Box position="relative">
             <Button variant="tertiary" size="small" icon={ShoppingBagIcon} />
             <Box
-              position="absolute"
-              top="-4px"
-              right="-4px"
+              position="absolute" top="-4px" right="-4px"
               backgroundColor="surface.background.primary.intense"
-              borderRadius="round"
-              width="16px"
-              height="16px"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
+              borderRadius="round" width="16px" height="16px"
+              display="flex" alignItems="center" justifyContent="center"
             >
               <Text size="xsmall" color="surface.text.staticWhite.normal" weight="semibold">2</Text>
             </Box>
@@ -199,7 +182,7 @@ export default function StoreHomePage() {
         paddingY="spacing.3"
         paddingX="spacing.8"
         display="flex"
-        gap="spacing.5"
+        gap="spacing.6"
         overflowX="auto"
       >
         {navLinks.map((link) => (
@@ -223,75 +206,75 @@ export default function StoreHomePage() {
           borderRadius="large"
           borderWidth="thin"
           borderColor="surface.border.gray.muted"
-          padding="spacing.8"
+          overflow="hidden"
           display="flex"
           flexDirection={{ base: 'column', l: 'row' }}
-          alignItems="center"
-          gap="spacing.8"
-          minHeight="240px"
+          alignItems="stretch"
+          minHeight="280px"
         >
           {/* Left: Content */}
-          <Box flex={1} display="flex" flexDirection="column" gap="spacing.4">
+          <Box
+            flex={1}
+            display="flex"
+            flexDirection="column"
+            justifyContent="center"
+            gap="spacing.4"
+            padding="spacing.8"
+          >
             <Box>
               <Badge color="positive" size="small">New Arrival</Badge>
             </Box>
-            <Heading size="2xlarge" weight="semibold">
-              Technology that <Text as="span" size="2xlarge" weight="semibold" color="interactive.text.primary.normal">moves</Text> with you
-            </Heading>
-            <Text size="medium" color="surface.text.gray.muted">
+            <Box>
+              <Heading size="2xlarge" weight="semibold">
+                Technology that{' '}
+              </Heading>
+              <Heading size="2xlarge" weight="semibold" color="interactive.text.primary.normal">
+                moves
+              </Heading>
+              <Heading size="2xlarge" weight="semibold">
+                {' '}with you
+              </Heading>
+            </Box>
+            <Text size="small" color="surface.text.gray.muted">
               Explore the latest electronics, smart accessories and more. Handpicked for you.
             </Text>
             <Box display="flex" gap="spacing.3" flexWrap="wrap">
-              <Button variant="primary" size="large" icon={ArrowRightIcon} iconPosition="right">
+              <Button variant="primary" size="medium" icon={ArrowRightIcon} iconPosition="right">
                 Shop Now
               </Button>
-              <Button variant="secondary" size="large" icon={SparklesIcon} iconPosition="left">
+              <Button variant="secondary" size="medium" icon={SparklesIcon} iconPosition="left">
                 Ask AI Assistant
               </Button>
             </Box>
-            <Box display="flex" gap="spacing.5" marginTop="spacing.2">
+            <Box display="flex" gap="spacing.5">
               {[
                 { icon: CheckCircleIcon, text: '100% Original Products' },
                 { icon: ShieldIcon, text: 'Secure Payments' },
                 { icon: RefreshIcon, text: 'Easy Returns' },
-              ].map((trust, i) => (
+              ].map((t, i) => (
                 <Box key={i} display="flex" alignItems="center" gap="spacing.1">
-                  <trust.icon size="xsmall" color="interactive.icon.positive.normal" />
-                  <Text size="xsmall" color="surface.text.gray.muted">{trust.text}</Text>
+                  <t.icon size="xsmall" color="interactive.icon.positive.normal" />
+                  <Text size="xsmall" color="surface.text.gray.muted">{t.text}</Text>
                 </Box>
               ))}
             </Box>
           </Box>
 
-          {/* Right: Product Collage */}
+          {/* Right: Hero Image */}
           <Box
-            width={{ base: '100%', l: '380px' }}
-            height="240px"
-            backgroundColor="surface.background.gray.subtle"
-            borderRadius="large"
+            width={{ base: '100%', l: '420px' }}
+            flexShrink={0}
+            backgroundColor="#EEF2F8"
             display="flex"
             alignItems="center"
             justifyContent="center"
-            flexShrink={0}
+            overflow="hidden"
           >
-            <Box display="flex" flexDirection="column" alignItems="center" gap="spacing.2">
-              <Box display="flex" gap="spacing.3">
-                <Box backgroundColor="surface.background.gray.intense" borderRadius="medium" padding="spacing.4" borderWidth="thin" borderColor="surface.border.gray.muted">
-                  <Text size="xlarge">💻</Text>
-                </Box>
-                <Box backgroundColor="surface.background.gray.intense" borderRadius="medium" padding="spacing.4" borderWidth="thin" borderColor="surface.border.gray.muted">
-                  <Text size="xlarge">🎧</Text>
-                </Box>
-              </Box>
-              <Box display="flex" gap="spacing.3">
-                <Box backgroundColor="surface.background.gray.intense" borderRadius="medium" padding="spacing.4" borderWidth="thin" borderColor="surface.border.gray.muted">
-                  <Text size="xlarge">⌚</Text>
-                </Box>
-                <Box backgroundColor="surface.background.gray.intense" borderRadius="medium" padding="spacing.4" borderWidth="thin" borderColor="surface.border.gray.muted">
-                  <Text size="xlarge">🎵</Text>
-                </Box>
-              </Box>
-            </Box>
+            <img
+              src={IMGS.hero}
+              alt="Featured products"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
           </Box>
         </Box>
 
@@ -323,14 +306,17 @@ export default function StoreHomePage() {
                 style={{ cursor: 'pointer' }}
               >
                 <Box
-                  width="48px" height="48px"
+                  width="72px"
+                  height="64px"
+                  borderRadius="medium"
+                  overflow="hidden"
                   backgroundColor="surface.background.gray.subtle"
-                  borderRadius="large"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
                 >
-                  <Text size="large">{cat.emoji}</Text>
+                  <img
+                    src={cat.img}
+                    alt={cat.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
                 </Box>
                 <Text size="xsmall" weight="semibold" textAlign="center">{cat.name}</Text>
                 <Text size="xsmall" color="surface.text.gray.muted" textAlign="center">{cat.count} products</Text>
@@ -359,45 +345,65 @@ export default function StoreHomePage() {
                 borderRadius="large"
                 borderWidth="thin"
                 borderColor="surface.border.gray.muted"
-                padding="spacing.5"
+                padding="spacing.4"
                 display="flex"
                 flexDirection="column"
               >
-                {/* Badge */}
-                <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.3">
+                {/* Badge row */}
+                <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.2">
                   {product.badge ? (
                     <Badge color={product.badgeColor} size="small">{product.badge}</Badge>
                   ) : <Box />}
                 </Box>
 
-                {/* Image */}
-                <ProductImage emoji={
-                  product.name.includes('AirPods') || product.name.includes('Sony') || product.name.includes('JBL') || product.name.includes('boAt') ? '🎧' :
-                  product.name.includes('MacBook') ? '💻' :
-                  product.name.includes('iPhone') ? '📱' : '📦'
-                } />
+                {/* Product Image */}
+                <Box
+                  height="180px"
+                  backgroundColor="#FAFAFA"
+                  borderRadius="medium"
+                  overflow="hidden"
+                  marginBottom="spacing.3"
+                  display="flex"
+                  alignItems="center"
+                  justifyContent="center"
+                >
+                  <img
+                    src={product.img}
+                    alt={product.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }}
+                  />
+                </Box>
 
                 {/* Info */}
                 <Box display="flex" flexDirection="column" gap="spacing.2" flex={1}>
                   <Text size="small" weight="semibold" truncateAfterLines={2}>{product.name}</Text>
+
+                  {/* Rating */}
                   <Box display="flex" alignItems="center" gap="spacing.2">
-                    <StarRating rating={product.rating} />
+                    <Text size="xsmall" color="interactive.text.notice.normal" weight="semibold">★ {product.rating}</Text>
                     <Text size="xsmall" color="surface.text.gray.muted">({product.reviews})</Text>
                   </Box>
+
+                  {/* Price */}
                   <Box display="flex" alignItems="center" gap="spacing.2">
-                    <Text size="small" weight="semibold">{product.price}</Text>
+                    <Text size="medium" weight="semibold">{product.price}</Text>
                     {product.oldPrice && (
                       <Text size="xsmall" color="surface.text.gray.muted" style={{ textDecoration: 'line-through' }}>
                         {product.oldPrice}
                       </Text>
                     )}
                   </Box>
+
+                  {/* Stock */}
                   <Box display="flex" alignItems="center" gap="spacing.1">
                     <Box
                       width="6px" height="6px" borderRadius="round"
-                      backgroundColor={product.stockColor === 'positive' ? 'surface.background.sea.intense' : 'surface.background.cloud.intense'}
+                      backgroundColor={product.stockOk ? 'surface.background.sea.intense' : 'surface.background.cloud.intense'}
                     />
-                    <Text size="xsmall" color={product.stockColor === 'positive' ? 'interactive.text.positive.normal' : 'interactive.text.notice.normal'}>
+                    <Text
+                      size="xsmall"
+                      color={product.stockOk ? 'interactive.text.positive.normal' : 'interactive.text.notice.normal'}
+                    >
                       {product.stock}
                     </Text>
                   </Box>
@@ -415,7 +421,7 @@ export default function StoreHomePage() {
 
         {/* ── AI Assistant Section ── */}
         <Box
-          backgroundColor="surface.background.primary.subtle"
+          backgroundColor="#EEF4FF"
           borderRadius="large"
           borderWidth="thin"
           borderColor="surface.border.primary.muted"
@@ -427,15 +433,17 @@ export default function StoreHomePage() {
         >
           {/* Robot illustration */}
           <Box
-            width="80px" height="80px"
-            backgroundColor="surface.background.primary.intense"
-            borderRadius="large"
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
+            width="96px" height="96px"
             flexShrink={0}
+            borderRadius="large"
+            overflow="hidden"
+            backgroundColor="#DBEAFE"
           >
-            <SparklesIcon size="large" color="interactive.icon.staticWhite.normal" />
+            <img
+              src={IMGS.aiRobot}
+              alt="AI Assistant"
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
           </Box>
 
           {/* Text + prompts */}
@@ -496,14 +504,12 @@ export default function StoreHomePage() {
             ].map((trust, i) => (
               <Box key={i} display="flex" flexDirection="column" alignItems="center" gap="spacing.2" textAlign="center">
                 <Box
-                  width="40px" height="40px"
+                  width="44px" height="44px"
                   backgroundColor="surface.background.primary.subtle"
                   borderRadius="large"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
+                  display="flex" alignItems="center" justifyContent="center"
                 >
-                  <trust.icon size="small" color="interactive.icon.primary.normal" />
+                  <trust.icon size="medium" color="interactive.icon.primary.normal" />
                 </Box>
                 <Text size="small" weight="semibold">{trust.title}</Text>
                 <Text size="xsmall" color="surface.text.gray.muted">{trust.sub}</Text>
@@ -538,14 +544,12 @@ export default function StoreHomePage() {
                 borderBottomWidth={i < bestSellers.length - 1 ? 'thin' : 'none'}
                 borderBottomColor="surface.border.gray.muted"
               >
-                {/* Rank */}
+                {/* Rank badge */}
                 <Box
                   width="28px" height="28px"
                   backgroundColor={i === 0 ? 'surface.background.primary.intense' : 'surface.background.gray.subtle'}
                   borderRadius="round"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
+                  display="flex" alignItems="center" justifyContent="center"
                   flexShrink={0}
                 >
                   <Text size="xsmall" weight="semibold" color={i === 0 ? 'surface.text.staticWhite.normal' : 'surface.text.gray.normal'}>
@@ -553,17 +557,19 @@ export default function StoreHomePage() {
                   </Text>
                 </Box>
 
-                {/* Product image */}
+                {/* Product thumbnail */}
                 <Box
                   width="44px" height="44px"
-                  backgroundColor="surface.background.gray.subtle"
                   borderRadius="medium"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
+                  overflow="hidden"
+                  backgroundColor="#FAFAFA"
                   flexShrink={0}
                 >
-                  <Text size="medium">{item.emoji}</Text>
+                  <img
+                    src={item.img}
+                    alt={item.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  />
                 </Box>
 
                 {/* Info */}
@@ -571,7 +577,7 @@ export default function StoreHomePage() {
                   <Text size="small" weight="semibold" truncateAfterLines={1}>{item.name}</Text>
                   <Box display="flex" alignItems="center" gap="spacing.2">
                     <Text size="small" color="interactive.text.primary.normal" weight="semibold">{item.price}</Text>
-                    <StarRating rating={item.rating} />
+                    <Text size="xsmall" color="interactive.text.notice.normal" weight="semibold">★ {item.rating}</Text>
                   </Box>
                 </Box>
 
@@ -606,19 +612,17 @@ export default function StoreHomePage() {
               <Text size="xsmall" color="surface.text.gray.muted">
                 Your trusted destination for the latest electronics and smart accessories.
               </Text>
-              <Box display="flex" gap="spacing.3">
-                {['f', 'in', 'X', '▶'].map((social, i) => (
+              <Box display="flex" gap="spacing.2">
+                {['f', 'in', 'X', '▶'].map((s, i) => (
                   <Box
                     key={i}
                     width="28px" height="28px"
                     backgroundColor="surface.background.gray.subtle"
                     borderRadius="round"
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
+                    display="flex" alignItems="center" justifyContent="center"
                     style={{ cursor: 'pointer' }}
                   >
-                    <Text size="xsmall" color="surface.text.gray.muted">{social}</Text>
+                    <Text size="xsmall" color="surface.text.gray.muted">{s}</Text>
                   </Box>
                 ))}
               </Box>
@@ -654,10 +658,7 @@ export default function StoreHomePage() {
               <Text size="xsmall" color="surface.text.gray.muted">
                 Subscribe to get special offers, free giveaways and once-in-a-lifetime deals.
               </Text>
-              <TextInput
-                label=""
-                placeholder="Enter your email"
-              />
+              <TextInput label="" placeholder="Enter your email" />
               <Button variant="primary" size="small" isFullWidth>Subscribe</Button>
             </Box>
           </Box>
@@ -674,7 +675,7 @@ export default function StoreHomePage() {
             gap="spacing.3"
           >
             <Text size="xsmall" color="surface.text.gray.muted">© 2025 Acme Store. All rights reserved.</Text>
-            <Box display="flex" alignItems="center" gap="spacing.3">
+            <Box display="flex" alignItems="center" gap="spacing.3" flexWrap="wrap">
               {['Razorpay', 'VISA', 'MC', 'RuPay', 'UPI'].map((pay) => (
                 <Box
                   key={pay}
@@ -699,12 +700,7 @@ export default function StoreHomePage() {
       </Box>
 
       {/* ── Floating Ask AI Button ── */}
-      <Box
-        position="fixed"
-        bottom="spacing.8"
-        right="spacing.8"
-        zIndex={200}
-      >
+      <Box position="fixed" bottom="spacing.8" right="spacing.8" zIndex={200}>
         <Button variant="primary" size="medium" icon={SparklesIcon} iconPosition="left">
           Ask AI
         </Button>
