@@ -90,7 +90,7 @@ export default function StoreHomePage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <Box backgroundColor="#F8F9FA" minHeight="100vh">
+    <Box backgroundColor="surface.background.gray.subtle" minHeight="100vh">
 
       {/* ── Announcement Strip ── */}
       <Box
@@ -264,7 +264,7 @@ export default function StoreHomePage() {
           <Box
             width={{ base: '100%', l: '420px' }}
             flexShrink={0}
-            backgroundColor="#EEF2F8"
+            backgroundColor="surface.background.primary.subtle"
             display="flex"
             alignItems="center"
             justifyContent="center"
@@ -359,7 +359,7 @@ export default function StoreHomePage() {
                 {/* Product Image */}
                 <Box
                   height="180px"
-                  backgroundColor="#FAFAFA"
+                  backgroundColor="surface.background.gray.subtle"
                   borderRadius="medium"
                   overflow="hidden"
                   marginBottom="spacing.3"
@@ -421,7 +421,7 @@ export default function StoreHomePage() {
 
         {/* ── AI Assistant Section ── */}
         <Box
-          backgroundColor="#EEF4FF"
+          backgroundColor="surface.background.primary.subtle"
           borderRadius="large"
           borderWidth="thin"
           borderColor="surface.border.primary.muted"
@@ -437,7 +437,7 @@ export default function StoreHomePage() {
             flexShrink={0}
             borderRadius="large"
             overflow="hidden"
-            backgroundColor="#DBEAFE"
+            backgroundColor="surface.background.primary.subtle"
           >
             <img
               src={IMGS.aiRobot}
@@ -562,7 +562,7 @@ export default function StoreHomePage() {
                   width="44px" height="44px"
                   borderRadius="medium"
                   overflow="hidden"
-                  backgroundColor="#FAFAFA"
+                  backgroundColor="surface.background.gray.subtle"
                   flexShrink={0}
                 >
                   <img
