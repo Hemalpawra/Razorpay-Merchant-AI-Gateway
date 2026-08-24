@@ -271,15 +271,15 @@ export default function StoreHomePage() {
         overflowX="auto"
       >
         {navLinks.map((link) => (
-          <Text
-            key={link}
-            size="small"
-            color={link === 'Deals' ? 'interactive.text.negative.normal' : 'surface.text.gray.normal'}
-            weight={link === 'Deals' ? 'semibold' : 'regular'}
-            style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}
-          >
-            {link}
-          </Text>
+          <div key={link} style={{ whiteSpace: 'nowrap', cursor: 'pointer' }}>
+            <Text
+              size="small"
+              color={link === 'Deals' ? 'interactive.text.negative.normal' : 'surface.text.gray.normal'}
+              weight={link === 'Deals' ? 'semibold' : 'regular'}
+            >
+              {link}
+            </Text>
+          </div>
         ))}
       </Box>
 
@@ -377,35 +377,35 @@ export default function StoreHomePage() {
             gap="spacing.3"
           >
             {categories.map((cat) => (
-              <Box
-                key={cat.name}
-                backgroundColor="surface.background.gray.intense"
-                borderRadius="large"
-                borderWidth="thin"
-                borderColor="surface.border.gray.muted"
-                padding="spacing.4"
-                display="flex"
-                flexDirection="column"
-                alignItems="center"
-                gap="spacing.2"
-                style={{ cursor: 'pointer' }}
-              >
+              <div key={cat.name} style={{ cursor: 'pointer' }}>
                 <Box
-                  width="72px"
-                  height="64px"
-                  borderRadius="medium"
-                  overflow="hidden"
-                  backgroundColor="surface.background.gray.subtle"
+                  backgroundColor="surface.background.gray.intense"
+                  borderRadius="large"
+                  borderWidth="thin"
+                  borderColor="surface.border.gray.muted"
+                  padding="spacing.4"
+                  display="flex"
+                  flexDirection="column"
+                  alignItems="center"
+                  gap="spacing.2"
                 >
-                  <img
-                    src={cat.img}
-                    alt={cat.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
+                  <Box
+                    width="72px"
+                    height="64px"
+                    borderRadius="medium"
+                    overflow="hidden"
+                    backgroundColor="surface.background.gray.subtle"
+                  >
+                    <img
+                      src={cat.img}
+                      alt={cat.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  </Box>
+                  <Text size="xsmall" weight="semibold" textAlign="center">{cat.name}</Text>
+                  <Text size="xsmall" color="surface.text.gray.muted" textAlign="center">{cat.count} products</Text>
                 </Box>
-                <Text size="xsmall" weight="semibold" textAlign="center">{cat.name}</Text>
-                <Text size="xsmall" color="surface.text.gray.muted" textAlign="center">{cat.count} products</Text>
-              </Box>
+              </div>
             ))}
           </Box>
         </Box>
@@ -440,18 +440,19 @@ export default function StoreHomePage() {
                   {product.badge ? (
                     <Badge color={product.badgeColor} size="small">{product.badge}</Badge>
                   ) : <Box />}
-                  <Box
-                    width="32px"
-                    height="32px"
-                    borderRadius="round"
-                    backgroundColor="surface.background.gray.subtle"
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <HeartIcon size="small" color="surface.icon.gray.muted" />
-                  </Box>
+                  <div style={{ cursor: 'pointer' }}>
+                    <Box
+                      width="32px"
+                      height="32px"
+                      borderRadius="round"
+                      backgroundColor="surface.background.gray.subtle"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                    >
+                      <HeartIcon size="small" color="surface.icon.gray.muted" />
+                    </Box>
+                  </div>
                 </Box>
 
                 {/* Product Image */}
@@ -475,7 +476,7 @@ export default function StoreHomePage() {
                 <Box display="flex" flexDirection="column" gap="spacing.2" flex={1}>
                   {/* Title & Subtitle */}
                   <Box display="flex" flexDirection="column" gap="spacing.1">
-                    <Text size="medium" weight="bold">{product.name}</Text>
+                    <Text size="medium" weight="semibold">{product.name}</Text>
                     {product.subtitle && (
                       <Text size="xsmall" color="surface.text.gray.muted">{product.subtitle}</Text>
                     )}
@@ -489,11 +490,13 @@ export default function StoreHomePage() {
 
                   {/* Price Row */}
                   <Box display="flex" alignItems="center" gap="spacing.2" flexWrap="wrap">
-                    <Text size="large" weight="bold">{product.price}</Text>
+                    <Text size="large" weight="semibold">{product.price}</Text>
                     {product.oldPrice && (
-                      <Text size="xsmall" color="surface.text.gray.muted" style={{ textDecoration: 'line-through' }}>
-                        {product.oldPrice}
-                      </Text>
+                      <div style={{ textDecoration: 'line-through' }}>
+                        <Text size="xsmall" color="surface.text.gray.muted">
+                          {product.oldPrice}
+                        </Text>
+                      </div>
                     )}
                     {product.discount && (
                       <Badge color="positive" size="small">{product.discount}</Badge>
@@ -568,18 +571,18 @@ export default function StoreHomePage() {
             </Text>
             <Box display="flex" flexWrap="wrap" gap="spacing.2">
               {aiPrompts.map((prompt, i) => (
-                <Box
-                  key={i}
-                  backgroundColor="surface.background.gray.intense"
-                  borderRadius="round"
-                  borderWidth="thin"
-                  borderColor="surface.border.primary.muted"
-                  paddingX="spacing.3"
-                  paddingY="spacing.2"
-                  style={{ cursor: 'pointer' }}
-                >
-                  <Text size="xsmall" color="interactive.text.primary.normal">💬 {prompt}</Text>
-                </Box>
+                <div key={i} style={{ cursor: 'pointer' }}>
+                  <Box
+                    backgroundColor="surface.background.gray.intense"
+                    borderRadius="round"
+                    borderWidth="thin"
+                    borderColor="surface.border.primary.muted"
+                    paddingX="spacing.3"
+                    paddingY="spacing.2"
+                  >
+                    <Text size="xsmall" color="interactive.text.primary.normal">💬 {prompt}</Text>
+                  </Box>
+                </div>
               ))}
             </Box>
           </Box>
@@ -654,63 +657,63 @@ export default function StoreHomePage() {
                 item.rank <= 3 ? 'surface.text.staticWhite.normal' : 'surface.text.gray.normal';
 
               return (
-                <Box
-                  key={item.rank}
-                  backgroundColor="surface.background.gray.intense"
-                  borderRadius="large"
-                  borderWidth="thin"
-                  borderColor="surface.border.gray.muted"
-                  padding="spacing.3"
-                  display="flex"
-                  alignItems="center"
-                  gap="spacing.3"
-                  style={{ cursor: 'pointer' }}
-                >
-                  {/* Rank Badge */}
+                <div key={item.rank} style={{ cursor: 'pointer' }}>
                   <Box
-                    width="24px"
-                    height="24px"
-                    backgroundColor={badgeBg as any}
-                    borderRadius="round"
+                    backgroundColor="surface.background.gray.intense"
+                    borderRadius="large"
+                    borderWidth="thin"
+                    borderColor="surface.border.gray.muted"
+                    padding="spacing.3"
                     display="flex"
                     alignItems="center"
-                    justifyContent="center"
-                    flexShrink={0}
+                    gap="spacing.3"
                   >
-                    <Text size="xsmall" weight="bold" color={badgeTextColor as any}>
-                      {item.rank}
-                    </Text>
-                  </Box>
-
-                  {/* Product Thumbnail */}
-                  <Box
-                    width="44px"
-                    height="44px"
-                    borderRadius="medium"
-                    overflow="hidden"
-                    backgroundColor="surface.background.gray.subtle"
-                    flexShrink={0}
-                  >
-                    <img
-                      src={item.img}
-                      alt={item.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }}
-                    />
-                  </Box>
-
-                  {/* Title, Price, Rating */}
-                  <Box flex={1} display="flex" flexDirection="column" gap="spacing.1" overflow="hidden">
-                    <Text size="xsmall" weight="bold" truncateAfterLines={1}>
-                      {item.name}
-                    </Text>
-                    <Box display="flex" alignItems="center" justifyContent="space-between" gap="spacing.1">
-                      <Text size="xsmall" weight="bold">{item.price}</Text>
-                      <Text size="xsmall" color="interactive.text.notice.normal" weight="semibold">
-                        ★ {item.rating}
+                    {/* Rank Badge */}
+                    <Box
+                      width="24px"
+                      height="24px"
+                      backgroundColor={badgeBg as any}
+                      borderRadius="round"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      flexShrink={0}
+                    >
+                      <Text size="xsmall" weight="semibold" color={badgeTextColor as any}>
+                        {item.rank}
                       </Text>
                     </Box>
+  
+                    {/* Product Thumbnail */}
+                    <Box
+                      width="44px"
+                      height="44px"
+                      borderRadius="medium"
+                      overflow="hidden"
+                      backgroundColor="surface.background.gray.subtle"
+                      flexShrink={0}
+                    >
+                      <img
+                        src={item.img}
+                        alt={item.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }}
+                      />
+                    </Box>
+  
+                    {/* Title, Price, Rating */}
+                    <Box flex={1} display="flex" flexDirection="column" gap="spacing.1" overflow="hidden">
+                      <Text size="xsmall" weight="semibold" truncateAfterLines={1}>
+                        {item.name}
+                      </Text>
+                      <Box display="flex" alignItems="center" justifyContent="space-between" gap="spacing.1">
+                        <Text size="xsmall" weight="semibold">{item.price}</Text>
+                        <Text size="xsmall" color="interactive.text.notice.normal" weight="semibold">
+                          ★ {item.rating}
+                        </Text>
+                      </Box>
+                    </Box>
                   </Box>
-                </Box>
+                </div>
               );
             })}
           </Box>
@@ -743,16 +746,16 @@ export default function StoreHomePage() {
               </Text>
               <Box display="flex" gap="spacing.2">
                 {['f', 'in', 'X', '▶'].map((s, i) => (
-                  <Box
-                    key={i}
-                    width="28px" height="28px"
-                    backgroundColor="surface.background.gray.subtle"
-                    borderRadius="round"
-                    display="flex" alignItems="center" justifyContent="center"
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <Text size="xsmall" color="surface.text.gray.muted">{s}</Text>
-                  </Box>
+                  <div key={i} style={{ cursor: 'pointer' }}>
+                    <Box
+                      width="28px" height="28px"
+                      backgroundColor="surface.background.gray.subtle"
+                      borderRadius="round"
+                      display="flex" alignItems="center" justifyContent="center"
+                    >
+                      <Text size="xsmall" color="surface.text.gray.muted">{s}</Text>
+                    </Box>
+                  </div>
                 ))}
               </Box>
             </Box>
@@ -761,7 +764,9 @@ export default function StoreHomePage() {
             <Box display="flex" flexDirection="column" gap="spacing.2">
               <Text size="small" weight="semibold" marginBottom="spacing.1">Shop</Text>
               {['All Products', 'Laptops', 'Mobile', 'Accessories', 'Audio', 'Deals'].map((link) => (
-                <Text key={link} size="xsmall" color="surface.text.gray.muted" style={{ cursor: 'pointer' }}>{link}</Text>
+                <div key={link} style={{ cursor: 'pointer' }}>
+                  <Text size="xsmall" color="surface.text.gray.muted">{link}</Text>
+                </div>
               ))}
             </Box>
 
@@ -769,7 +774,9 @@ export default function StoreHomePage() {
             <Box display="flex" flexDirection="column" gap="spacing.2">
               <Text size="small" weight="semibold" marginBottom="spacing.1">Help & Support</Text>
               {['Help Center', 'Track Order', 'Returns & Refunds', 'Shipping Info', 'FAQ', 'Contact Us'].map((link) => (
-                <Text key={link} size="xsmall" color="surface.text.gray.muted" style={{ cursor: 'pointer' }}>{link}</Text>
+                <div key={link} style={{ cursor: 'pointer' }}>
+                  <Text size="xsmall" color="surface.text.gray.muted">{link}</Text>
+                </div>
               ))}
             </Box>
 
@@ -777,7 +784,9 @@ export default function StoreHomePage() {
             <Box display="flex" flexDirection="column" gap="spacing.2">
               <Text size="small" weight="semibold" marginBottom="spacing.1">Policies</Text>
               {['Terms & Conditions', 'Privacy Policy', 'Cancellation Policy', 'Return Policy', 'Shipping Policy'].map((link) => (
-                <Text key={link} size="xsmall" color="surface.text.gray.muted" style={{ cursor: 'pointer' }}>{link}</Text>
+                <div key={link} style={{ cursor: 'pointer' }}>
+                  <Text size="xsmall" color="surface.text.gray.muted">{link}</Text>
+                </div>
               ))}
             </Box>
 
