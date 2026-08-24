@@ -149,12 +149,12 @@ function OrdersLineChart() {
 
 function SourceDonutChart() {
   const sources = [
-    { label: 'Human Customer', value: '₹2,65,450', pct: '36.6%', color: '#2563EB' },
-    { label: 'ChatGPT', value: '₹1,86,240', pct: '25.7%', color: '#38BDF8' },
-    { label: 'Claude', value: '₹1,25,300', pct: '17.3%', color: '#A855F7' },
-    { label: 'Gemini', value: '₹85,600', pct: '11.8%', color: '#F59E0B' },
-    { label: 'Grok', value: '₹36,970', pct: '5.1%', color: '#64748B' },
-    { label: 'Merchant AI', value: '₹24,000', pct: '3.3%', color: '#10B981' },
+    { label: 'Human Customer', value: '₹2,65,450', pct: '36.6%', color: '#2563EB', bladeBg: 'surface.background.primary.intense' },
+    { label: 'ChatGPT', value: '₹1,86,240', pct: '25.7%', color: '#38BDF8', bladeBg: 'surface.background.cloud.intense' },
+    { label: 'Claude', value: '₹1,25,300', pct: '17.3%', color: '#A855F7', bladeBg: 'surface.background.sea.intense' },
+    { label: 'Gemini', value: '₹85,600', pct: '11.8%', color: '#F59E0B', bladeBg: 'surface.background.gray.intense' },
+    { label: 'Grok', value: '₹36,970', pct: '5.1%', color: '#64748B', bladeBg: 'surface.background.gray.subtle' },
+    { label: 'Merchant AI', value: '₹24,000', pct: '3.3%', color: '#10B981', bladeBg: 'surface.background.primary.subtle' },
   ];
 
   return (
@@ -185,7 +185,7 @@ function SourceDonutChart() {
         {sources.map((s, idx) => (
           <Box key={idx} display="flex" justifyContent="space-between" alignItems="center">
             <Box display="flex" alignItems="center" gap="spacing.2">
-              <Box width="8px" height="8px" borderRadius="round" backgroundColor={s.color as any} />
+              <Box width="8px" height="8px" borderRadius="round" backgroundColor={s.bladeBg as any} />
               <Text size="xsmall" color="surface.text.gray.normal">{s.label}</Text>
             </Box>
             <Box display="flex" alignItems="center" gap="spacing.2">
