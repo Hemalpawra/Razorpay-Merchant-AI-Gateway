@@ -19,6 +19,7 @@ import {
   RefreshIcon,
   HeadphoneIcon,
   MapPinIcon,
+  HeartIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
 
@@ -42,9 +43,9 @@ const IMGS = {
     audio: `${CDN}/cat-audio.jpg`,
     accessories: `${CDN}/cat-accessories.jpg`,
     gaming: `${CDN}/cat-gaming.jpg`,
-    mobile: `${CDN}/prod-iphone.jpg`,       // reuse product image
-    office: `${CDN}/cat-accessories.jpg`,    // reuse accessories
-    wearables: `${CDN}/prod-boat.jpg`,       // reuse wearable product
+    mobile: `${CDN}/prod-iphone.jpg`,
+    office: `${CDN}/cat-accessories.jpg`,
+    wearables: `${CDN}/prod-boat.jpg`,
   },
 };
 
@@ -61,12 +62,96 @@ const categories = [
 ];
 
 const featuredProducts = [
-  { id: 1, name: 'Apple AirPods Pro (2nd Gen)', price: '₹24,900', rating: '4.6', reviews: '2.1K', stock: 'In stock', stockOk: true, badge: 'Bestseller', badgeColor: 'notice' as const, img: IMGS.products.airpods },
-  { id: 2, name: 'MacBook Air M2 (13-inch)', price: '₹89,900', oldPrice: '₹99,900', rating: '4.7', reviews: '1.2K', stock: 'In stock', stockOk: true, badge: '10% OFF', badgeColor: 'positive' as const, img: IMGS.products.macbook },
-  { id: 3, name: 'Sony WH-1000XM5', price: '₹29,990', rating: '4.5', reviews: '980', stock: 'In stock', stockOk: true, badge: 'New', badgeColor: 'information' as const, img: IMGS.products.sony },
-  { id: 4, name: 'iPhone 15 (128GB)', price: '₹69,900', rating: '4.7', reviews: '3.2K', stock: 'Low stock', stockOk: false, badge: 'Bestseller', badgeColor: 'notice' as const, img: IMGS.products.iphone },
-  { id: 5, name: 'boAt Wave Prime 47', price: '₹2,199', oldPrice: '₹2,599', rating: '4.4', reviews: '1.1K', stock: 'In stock', stockOk: true, badge: '15% OFF', badgeColor: 'positive' as const, img: IMGS.products.boat },
-  { id: 6, name: 'JBL Flip 6 Bluetooth Speaker', price: '₹9,999', rating: '4.6', reviews: '870', stock: 'In stock', stockOk: true, badge: '', badgeColor: 'neutral' as const, img: IMGS.products.jbl },
+  {
+    id: 1,
+    name: 'Sony WH-1000XM5',
+    subtitle: 'Wireless Noise Cancelling Headphones',
+    price: '₹29,990',
+    oldPrice: '₹34,990',
+    discount: '14% OFF',
+    rating: '4.5',
+    reviews: '980',
+    stock: 'In stock',
+    stockOk: true,
+    badge: 'Bestseller',
+    badgeColor: 'positive' as const,
+    img: IMGS.products.sony,
+  },
+  {
+    id: 2,
+    name: 'boAt Rockerz 450',
+    subtitle: 'Wireless Headphones',
+    price: '₹1,599',
+    oldPrice: '₹1,799',
+    discount: '11% OFF',
+    rating: '4.4',
+    reviews: '1.2K',
+    stock: 'In stock',
+    stockOk: true,
+    badge: '10% OFF',
+    badgeColor: 'notice' as const,
+    img: IMGS.products.boat,
+  },
+  {
+    id: 3,
+    name: 'Apple AirPods Pro (2nd Gen)',
+    subtitle: 'True Wireless Earbuds',
+    price: '₹24,900',
+    oldPrice: '',
+    discount: '',
+    rating: '4.6',
+    reviews: '2.1K',
+    stock: 'In stock',
+    stockOk: true,
+    badge: 'Bestseller',
+    badgeColor: 'positive' as const,
+    img: IMGS.products.airpods,
+  },
+  {
+    id: 4,
+    name: 'MacBook Air M2 (13-inch)',
+    subtitle: 'Apple M2 Chip, 8GB RAM, 256GB SSD',
+    price: '₹89,900',
+    oldPrice: '₹99,900',
+    discount: '10% OFF',
+    rating: '4.7',
+    reviews: '1.2K',
+    stock: 'In stock',
+    stockOk: true,
+    badge: '10% OFF',
+    badgeColor: 'notice' as const,
+    img: IMGS.products.macbook,
+  },
+  {
+    id: 5,
+    name: 'iPhone 15 (128GB)',
+    subtitle: 'Dynamic Island, 48MP Main Camera',
+    price: '₹69,900',
+    oldPrice: '₹79,900',
+    discount: '12% OFF',
+    rating: '4.7',
+    reviews: '3.2K',
+    stock: 'Low stock',
+    stockOk: false,
+    badge: 'Bestseller',
+    badgeColor: 'positive' as const,
+    img: IMGS.products.iphone,
+  },
+  {
+    id: 6,
+    name: 'JBL Flip 6 Bluetooth Speaker',
+    subtitle: 'Portable Waterproof Speaker',
+    price: '₹9,999',
+    oldPrice: '₹11,999',
+    discount: '16% OFF',
+    rating: '4.6',
+    reviews: '870',
+    stock: 'In stock',
+    stockOk: true,
+    badge: 'New',
+    badgeColor: 'information' as const,
+    img: IMGS.products.jbl,
+  },
 ];
 
 const bestSellers = [
@@ -348,21 +433,33 @@ export default function StoreHomePage() {
                 padding="spacing.4"
                 display="flex"
                 flexDirection="column"
+                gap="spacing.3"
               >
-                {/* Badge row */}
-                <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.2">
+                {/* Badge & Heart Wishlist Icon Row */}
+                <Box display="flex" justifyContent="space-between" alignItems="center">
                   {product.badge ? (
                     <Badge color={product.badgeColor} size="small">{product.badge}</Badge>
                   ) : <Box />}
+                  <Box
+                    width="32px"
+                    height="32px"
+                    borderRadius="round"
+                    backgroundColor="surface.background.gray.subtle"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <HeartIcon size="small" color="surface.icon.gray.muted" />
+                  </Box>
                 </Box>
 
                 {/* Product Image */}
                 <Box
-                  height="180px"
+                  height="190px"
                   backgroundColor="surface.background.gray.subtle"
                   borderRadius="medium"
                   overflow="hidden"
-                  marginBottom="spacing.3"
                   display="flex"
                   alignItems="center"
                   justifyContent="center"
@@ -370,27 +467,36 @@ export default function StoreHomePage() {
                   <img
                     src={product.img}
                     alt={product.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '8px' }}
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '12px' }}
                   />
                 </Box>
 
-                {/* Info */}
+                {/* Product Info */}
                 <Box display="flex" flexDirection="column" gap="spacing.2" flex={1}>
-                  <Text size="small" weight="semibold" truncateAfterLines={2}>{product.name}</Text>
+                  {/* Title & Subtitle */}
+                  <Box display="flex" flexDirection="column" gap="spacing.1">
+                    <Text size="medium" weight="bold">{product.name}</Text>
+                    {product.subtitle && (
+                      <Text size="xsmall" color="surface.text.gray.muted">{product.subtitle}</Text>
+                    )}
+                  </Box>
 
                   {/* Rating */}
-                  <Box display="flex" alignItems="center" gap="spacing.2">
+                  <Box display="flex" alignItems="center" gap="spacing.1">
                     <Text size="xsmall" color="interactive.text.notice.normal" weight="semibold">★ {product.rating}</Text>
                     <Text size="xsmall" color="surface.text.gray.muted">({product.reviews})</Text>
                   </Box>
 
-                  {/* Price */}
-                  <Box display="flex" alignItems="center" gap="spacing.2">
-                    <Text size="medium" weight="semibold">{product.price}</Text>
+                  {/* Price Row */}
+                  <Box display="flex" alignItems="center" gap="spacing.2" flexWrap="wrap">
+                    <Text size="large" weight="bold">{product.price}</Text>
                     {product.oldPrice && (
                       <Text size="xsmall" color="surface.text.gray.muted" style={{ textDecoration: 'line-through' }}>
                         {product.oldPrice}
                       </Text>
+                    )}
+                    {product.discount && (
+                      <Badge color="positive" size="small">{product.discount}</Badge>
                     )}
                   </Box>
 
@@ -403,15 +509,20 @@ export default function StoreHomePage() {
                     <Text
                       size="xsmall"
                       color={product.stockOk ? 'interactive.text.positive.normal' : 'interactive.text.notice.normal'}
+                      weight="semibold"
                     >
                       {product.stock}
                     </Text>
                   </Box>
                 </Box>
 
-                <Box marginTop="spacing.4">
+                {/* Dual Action Buttons (Add to Cart + Buy Now) */}
+                <Box display="grid" gridTemplateColumns="1fr 1fr" gap="spacing.2" marginTop="auto" paddingTop="spacing.2">
                   <Button variant="secondary" size="small" icon={ShoppingBagIcon} iconPosition="left" isFullWidth>
                     Add to Cart
+                  </Button>
+                  <Button variant="primary" size="small" isFullWidth>
+                    Buy Now
                   </Button>
                 </Box>
               </Box>
@@ -527,63 +638,81 @@ export default function StoreHomePage() {
             </Button>
           </Box>
           <Box
-            backgroundColor="surface.background.gray.intense"
-            borderRadius="large"
-            borderWidth="thin"
-            borderColor="surface.border.gray.muted"
-            overflow="hidden"
+            display="grid"
+            gridTemplateColumns={{ base: '1fr', m: 'repeat(3,1fr)', l: 'repeat(5,1fr)' }}
+            gap="spacing.3"
           >
-            {bestSellers.map((item, i) => (
-              <Box
-                key={item.rank}
-                display="flex"
-                alignItems="center"
-                gap="spacing.4"
-                paddingX="spacing.5"
-                paddingY="spacing.4"
-                borderBottomWidth={i < bestSellers.length - 1 ? 'thin' : 'none'}
-                borderBottomColor="surface.border.gray.muted"
-              >
-                {/* Rank badge */}
-                <Box
-                  width="28px" height="28px"
-                  backgroundColor={i === 0 ? 'surface.background.primary.intense' : 'surface.background.gray.subtle'}
-                  borderRadius="round"
-                  display="flex" alignItems="center" justifyContent="center"
-                  flexShrink={0}
-                >
-                  <Text size="xsmall" weight="semibold" color={i === 0 ? 'surface.text.staticWhite.normal' : 'surface.text.gray.normal'}>
-                    {item.rank}
-                  </Text>
-                </Box>
+            {bestSellers.map((item) => {
+              const badgeBg =
+                item.rank <= 2
+                  ? 'surface.background.primary.intense'
+                  : item.rank === 3
+                  ? 'surface.background.cloud.intense'
+                  : 'surface.background.gray.subtle';
 
-                {/* Product thumbnail */}
-                <Box
-                  width="44px" height="44px"
-                  borderRadius="medium"
-                  overflow="hidden"
-                  backgroundColor="surface.background.gray.subtle"
-                  flexShrink={0}
-                >
-                  <img
-                    src={item.img}
-                    alt={item.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                  />
-                </Box>
+              const badgeTextColor =
+                item.rank <= 3 ? 'surface.text.staticWhite.normal' : 'surface.text.gray.normal';
 
-                {/* Info */}
-                <Box flex={1}>
-                  <Text size="small" weight="semibold" truncateAfterLines={1}>{item.name}</Text>
-                  <Box display="flex" alignItems="center" gap="spacing.2">
-                    <Text size="small" color="interactive.text.primary.normal" weight="semibold">{item.price}</Text>
-                    <Text size="xsmall" color="interactive.text.notice.normal" weight="semibold">★ {item.rating}</Text>
+              return (
+                <Box
+                  key={item.rank}
+                  backgroundColor="surface.background.gray.intense"
+                  borderRadius="large"
+                  borderWidth="thin"
+                  borderColor="surface.border.gray.muted"
+                  padding="spacing.3"
+                  display="flex"
+                  alignItems="center"
+                  gap="spacing.3"
+                  style={{ cursor: 'pointer' }}
+                >
+                  {/* Rank Badge */}
+                  <Box
+                    width="24px"
+                    height="24px"
+                    backgroundColor={badgeBg as any}
+                    borderRadius="round"
+                    display="flex"
+                    alignItems="center"
+                    justifyContent="center"
+                    flexShrink={0}
+                  >
+                    <Text size="xsmall" weight="bold" color={badgeTextColor as any}>
+                      {item.rank}
+                    </Text>
+                  </Box>
+
+                  {/* Product Thumbnail */}
+                  <Box
+                    width="44px"
+                    height="44px"
+                    borderRadius="medium"
+                    overflow="hidden"
+                    backgroundColor="surface.background.gray.subtle"
+                    flexShrink={0}
+                  >
+                    <img
+                      src={item.img}
+                      alt={item.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '2px' }}
+                    />
+                  </Box>
+
+                  {/* Title, Price, Rating */}
+                  <Box flex={1} display="flex" flexDirection="column" gap="spacing.1" overflow="hidden">
+                    <Text size="xsmall" weight="bold" truncateAfterLines={1}>
+                      {item.name}
+                    </Text>
+                    <Box display="flex" alignItems="center" justifyContent="space-between" gap="spacing.1">
+                      <Text size="xsmall" weight="bold">{item.price}</Text>
+                      <Text size="xsmall" color="interactive.text.notice.normal" weight="semibold">
+                        ★ {item.rating}
+                      </Text>
+                    </Box>
                   </Box>
                 </Box>
-
-                <Button variant="secondary" size="small">Add to Cart</Button>
-              </Box>
-            ))}
+              );
+            })}
           </Box>
         </Box>
 
