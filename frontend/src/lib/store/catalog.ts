@@ -109,6 +109,46 @@ export const products: Product[] = [
   p("spigen-phone-case", "Spigen Rugged Armor Case", "Shock Absorbing Case", "Spigen", "accessories", "/store/p-earbuds.jpg", 1299, 1799, 4.4, 890, "In stock", undefined, 60),
 ];
 
+export function mapDbProduct(row: {
+  id?: string;
+  sku?: string;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  price: number | string;
+  stock_qty?: number | null;
+  image_url?: string | null;
+  status?: string | null;
+  meta_json?: { brand?: string; subtitle?: string; rating?: number; reviews?: number; mrp?: number } | null;
+}): Product {
+  const meta = row.meta_json ?? {};
+  const category = row.category ?? "accessories";
+  const brand = meta.brand ?? row.name.split(" ")[0] ?? "General";
+  const stock: Product["stock"] = Number(row.stock_qty ?? 0) > 10 ? "In stock" : "Low stock";
+  return {
+    slug: row.sku ?? row.id ?? row.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+    name: row.name,
+    subtitle: meta.subtitle ?? row.description?.split(".")[0] ?? "Premium electronics",
+    brand,
+    category,
+    img: row.image_url ?? "/store/p-headphones.jpg",
+    price: Number(row.price),
+    mrp: meta.mrp,
+    rating: meta.rating ?? 4.5,
+    reviews: meta.reviews ?? 0,
+    stock,
+    badge: undefined,
+    popularity: 0,
+    description: row.description ?? "",
+    highlights: ["100% original product", "Manufacturer warranty", "7 days easy returns"],
+    specs: [
+      { label: "Brand", value: brand },
+      { label: "Category", value: categoryName(category) },
+      { label: "SKU", value: row.sku ?? "—" },
+    ],
+  };
+}
+
 export const brands = Array.from(new Set(products.map((x) => x.brand))).sort();
 
 export const formatPrice = (n: number) => `₹${n.toLocaleString("en-IN")}`;
@@ -127,9 +167,9 @@ export type CatalogFilters = {
   sort: string;
 };
 
-export function filterProducts(f: CatalogFilters) {
+export function filterProducts(f: CatalogFilters, source: Product[] = products) {
   const q = f.q.trim().toLowerCase();
-  let list = products.filter((prod) => {
+  let list = source.filter((prod) => {
     if (f.category && prod.category !== f.category) return false;
     if (f.brands.length && !f.brands.includes(prod.brand)) return false;
     if (prod.price > f.maxPrice) return false;

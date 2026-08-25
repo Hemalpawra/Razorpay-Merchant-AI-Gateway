@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Amount,
@@ -27,10 +28,7 @@ import { BladeRoot } from "./components/BladeRoot";
 import { SiteHeader } from "./components/SiteHeader";
 import { ProductCard } from "./components/ProductCard";
 import { useAiChat } from "./components/StoreAiProvider";
-import { categories, products } from "@/lib/store/catalog";
-
-const featured = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 6);
-const bestSellers = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 5);
+import { categories, products as fallbackProducts, mapDbProduct } from "@/lib/store/catalog";
 
 const trustItems = [
   { icon: ShieldIcon, title: "Secure Payments", sub: "Powered by Razorpay" },
@@ -69,6 +67,17 @@ function SectionHeader({
 export default function StoreHomePage() {
   const { openChat } = useAiChat();
   const router = useRouter();
+  const [products, setProducts] = useState<typeof fallbackProducts>([]);
+
+  useEffect(() => {
+    fetch('/api/products?status=active')
+      .then((response) => response.json())
+      .then((data) => setProducts((data.products ?? []).map(mapDbProduct)))
+      .catch(() => setProducts([]));
+  }, []);
+
+  const featured = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 6);
+  const bestSellers = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 5);
 
   return (
     <Box backgroundColor="surface.background.gray.subtle" minHeight="100vh">

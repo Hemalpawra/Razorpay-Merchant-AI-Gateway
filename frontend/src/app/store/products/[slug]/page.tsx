@@ -1,16 +1,26 @@
 'use client';
 
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "../../components/SiteHeader";
 import ProductDetailBlade from "../../components/ProductDetailBlade";
-import { getProduct, relatedProducts } from "@/lib/store/catalog";
+import { mapDbProduct, relatedProducts } from "@/lib/store/catalog";
 import { Box, Button, Heading, Text } from "@razorpay/blade/components";
 import { BladeRoot } from "../../components/BladeRoot";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = use(params);
-  const product = getProduct(resolvedParams.slug);
+  const [product, setProduct] = useState<ReturnType<typeof mapDbProduct> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { slug } = use(params);
+
+  useEffect(() => {
+    fetch(`/api/products?status=active&search=${encodeURIComponent(slug)}`)
+      .then((response) => response.json())
+      .then((data) => setProduct((data.products ?? []).map(mapDbProduct).find((item: ReturnType<typeof mapDbProduct>) => item.slug === slug) ?? null))
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  if (loading) return null;
 
   if (!product) {
     return (

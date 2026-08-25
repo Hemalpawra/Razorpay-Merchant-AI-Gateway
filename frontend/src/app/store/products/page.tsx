@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -35,6 +35,8 @@ import {
   categoryName,
   filterProducts,
   formatPrice,
+  mapDbProduct,
+  products as fallbackProducts,
 } from "@/lib/store/catalog";
 
 const MAX_PRICE = 100000;
@@ -74,6 +76,14 @@ function ProductsContent() {
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
 
   const [priceInput, setPriceInput] = useState(String(maxPrice));
+  const [liveProducts, setLiveProducts] = useState<typeof fallbackProducts>([]);
+
+  useEffect(() => {
+    fetch('/api/products?status=active')
+      .then((response) => response.json())
+      .then((data) => setLiveProducts((data.products ?? []).map(mapDbProduct)))
+      .catch(() => setLiveProducts([]));
+  }, []);
 
   const updateSearch = (params: Record<string, string | string[] | undefined>) => {
     const current = new URLSearchParams(searchParams.toString());
@@ -99,7 +109,7 @@ function ProductsContent() {
     onSale,
     minRating,
     sort,
-  });
+  }, liveProducts);
 
   const totalPages = Math.max(1, Math.ceil(results.length / PER_PAGE));
   const current = Math.min(page, totalPages);
