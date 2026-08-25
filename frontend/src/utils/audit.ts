@@ -39,31 +39,63 @@ export interface AuditLogOptions {
   meta_json?: Record<string, any>;
 }
 
-export async function logAuditEvent(options: AuditLogOptions): Promise<void> {
-  const { 
-    supabase, merchant_id, session_id, order_id, 
-    actor_type, event_type, title, description, result, meta_json 
-  } = options;
+export class MerchantAuditService {
+  static async logEvent(options: AuditLogOptions): Promise<void> {
+    const { 
+      supabase, merchant_id, session_id, order_id, 
+      actor_type, event_type, title, description, result, meta_json 
+    } = options;
 
-  try {
-    const { error } = await supabase
-      .from('audit_logs')
-      .insert({
-        merchant_id,
-        session_id: session_id || null,
-        order_id: order_id || null,
-        actor_type,
-        event_type,
-        title,
-        description,
-        result,
-        meta_json
-      });
+    try {
+      const { error } = await supabase
+        .from('audit_logs')
+        .insert({
+          merchant_id,
+          session_id: session_id || null,
+          order_id: order_id || null,
+          actor_type,
+          event_type,
+          title,
+          description,
+          result: result || 'info',
+          meta_json: meta_json || {}
+        });
 
-    if (error) {
-      console.error(`[Audit Log Error] Failed to write event '${event_type}':`, error);
+      if (error) {
+        console.error(`[Audit Log Error] Failed to write event '${event_type}':`, error);
+      }
+    } catch (err) {
+      console.error(`[Audit Log Exception] Error during audit logging for '${event_type}':`, err);
     }
-  } catch (err) {
-    console.error(`[Audit Log Exception] Error during audit logging for '${event_type}':`, err);
   }
+
+  static async logA2ARequest(supabase: SupabaseClient, merchant_id: string, session_id: string, text: string) {
+    return this.logEvent({
+      supabase,
+      merchant_id,
+      session_id,
+      actor_type: 'ai_assistant',
+      event_type: 'request_received',
+      title: 'A2A Protocol Request Received',
+      description: text,
+      result: 'info'
+    });
+  }
+
+  static async logPaymentVerified(supabase: SupabaseClient, merchant_id: string, order_id: string, payment_id: string) {
+    return this.logEvent({
+      supabase,
+      merchant_id,
+      order_id,
+      actor_type: 'customer',
+      event_type: 'payment_succeeded',
+      title: 'Razorpay Payment Verified',
+      description: `Payment ID: ${payment_id}`,
+      result: 'success'
+    });
+  }
+}
+
+export async function logAuditEvent(options: AuditLogOptions): Promise<void> {
+  return MerchantAuditService.logEvent(options);
 }
