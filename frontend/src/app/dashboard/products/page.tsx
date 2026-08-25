@@ -199,13 +199,15 @@ export default function ProductsPage() {
         </Box>
 
         {/* Filter Tabs */}
-        <Box marginBottom="spacing.5">
-          <Tabs variant="bordered" value={selectedTab} onChange={({ value }: any) => setSelectedTab(value || 'all')}>
-            <TabItem value="all">{`All Products (${products.length})`}</TabItem>
-            <TabItem value="active">{`Active (${activeCount})`}</TabItem>
-            <TabItem value="low_stock">{`Low Stock (${lowStockCount})`}</TabItem>
-            <TabItem value="out_of_stock">{`Out of Stock (${outOfStockCount})`}</TabItem>
-          </Tabs>
+        <Box marginBottom="spacing.5" width="100%" overflowX="auto">
+          <Box display="flex" width="100%" minWidth="max-content">
+            <Tabs variant="bordered" value={selectedTab} onChange={({ value }: any) => setSelectedTab(value || 'all')}>
+              <TabItem value="all">{`All Products (${products.length})`}</TabItem>
+              <TabItem value="active">{`Active (${activeCount})`}</TabItem>
+              <TabItem value="low_stock">{`Low Stock (${lowStockCount})`}</TabItem>
+              <TabItem value="out_of_stock">{`Out of Stock (${outOfStockCount})`}</TabItem>
+            </Tabs>
+          </Box>
         </Box>
 
         {/* Product Grid */}
