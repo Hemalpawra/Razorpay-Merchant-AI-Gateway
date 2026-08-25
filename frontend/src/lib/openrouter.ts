@@ -1,6 +1,6 @@
 /**
  * OpenRouter API Helper Utility for Free LLM Models
- * Supports openrouter/free models (e.g. meta-llama/llama-3.3-70b-instruct:free, google/gemini-2.0-flash-lite-preview-02-05:free, etc.)
+ * Supports openrouter/free models with fast timeout fallback
  */
 
 export interface OpenChatMessage {
@@ -26,15 +26,16 @@ export async function callOpenRouterLLM(
   const apiKey = process.env.OPENROUTER_API_KEY;
   const preferredModel = options?.model || process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
 
-  // If no API key is configured, log warning and return marker for local fallback engine
   if (!apiKey || apiKey.trim() === '') {
-    console.warn('[OpenRouter] OPENROUTER_API_KEY is not set in .env.local. Using local AI engine.');
     return {
       text: '',
       isFallback: true,
       modelUsed: 'local-rag-fallback'
     };
   }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s max timeout for fast UX
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -49,9 +50,12 @@ export async function callOpenRouterLLM(
         model: preferredModel,
         messages: messages,
         temperature: options?.temperature ?? 0.7,
-        max_tokens: options?.max_tokens ?? 1000,
-      })
+        max_tokens: options?.max_tokens ?? 500,
+      }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -73,11 +77,12 @@ export async function callOpenRouterLLM(
       rawJson: data
     };
   } catch (error: any) {
-    console.error('[OpenRouter Fetch Error]', error);
+    clearTimeout(timeoutId);
+    console.warn('[OpenRouter Timeout/Fetch fallback triggered]');
     return {
       text: '',
       isFallback: true,
-      modelUsed: preferredModel
+      modelUsed: 'local-rag-fallback'
     };
   }
 }

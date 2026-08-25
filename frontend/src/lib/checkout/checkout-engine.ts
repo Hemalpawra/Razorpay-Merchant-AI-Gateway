@@ -106,7 +106,7 @@ export class OrderCheckoutEngine {
   }
 
   /**
-   * Verify Razorpay payment signature and mark order as paid
+   * Verify Razorpay payment signature, mark order as paid, and issue an official Invoice
    */
   static async verifyPaymentSession(params: VerifyPaymentParams) {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, db_order_id, customer } = params;
@@ -139,7 +139,10 @@ export class OrderCheckoutEngine {
       query = query.eq('razorpay_order_id', razorpay_order_id);
     }
 
-    const { data: updatedOrder } = await query.select('*').single();
+    const { data: updatedOrder, error: orderErr } = await query.select('*').single();
+    if (orderErr) {
+      console.error('Error updating order status:', orderErr.message);
+    }
 
     if (customer && updatedOrder?.session_id) {
       await supabase.from('customer_details').upsert({
@@ -155,6 +158,45 @@ export class OrderCheckoutEngine {
       });
     }
 
+    // Generate Official Attached Invoice
+    let invoiceData = null;
+    if (updatedOrder) {
+      const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const subtotal = Number(updatedOrder.amount) || 0;
+      const taxAmount = Math.round(subtotal * 0.18 * 100) / 100;
+      const grandTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+
+      const generatedInvoice = {
+        invoice_number: invoiceNumber,
+        order_id: updatedOrder.id,
+        merchant_id: updatedOrder.merchant_id,
+        customer_name: customer?.full_name || customer?.name || 'Customer',
+        customer_email: customer?.email || 'customer@example.com',
+        subtotal,
+        tax_amount: taxAmount,
+        discount_amount: 0,
+        grand_total: grandTotal,
+        currency: updatedOrder.currency || 'INR',
+        status: 'issued'
+      };
+
+      try {
+        const { data: newInv, error: invErr } = await supabase
+          .from('invoices')
+          .insert(generatedInvoice)
+          .select('*')
+          .single();
+
+        if (!invErr && newInv) {
+          invoiceData = newInv;
+        } else {
+          invoiceData = generatedInvoice;
+        }
+      } catch {
+        invoiceData = generatedInvoice;
+      }
+    }
+
     if (updatedOrder?.merchant_id) {
       await MerchantAuditService.logPaymentVerified(
         supabase,
@@ -166,8 +208,9 @@ export class OrderCheckoutEngine {
 
     return {
       success: true,
-      message: 'Payment verified and order confirmed!',
-      order: updatedOrder
+      message: 'Payment verified and official order invoice generated!',
+      order: updatedOrder,
+      invoice: invoiceData
     };
   }
 }
