@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Amount,
   Badge,
@@ -17,16 +18,13 @@ import {
   DrawerFooter,
   DrawerHeader,
   EmptyState,
-  Heading,
   Indicator,
   ShoppingCartIcon,
-  SparklesIcon,
   Text
 } from "@razorpay/blade/components";
 
 import { BladeRoot } from "./BladeRoot";
 import { type Product } from "@/lib/store/catalog";
-import { AgentToAgentModal } from "@/components/AgentToAgentModal";
 
 type ChatMessageItem = {
   id: string;
@@ -61,12 +59,12 @@ function GenUIProductCard({
         <Box display="flex" flexDirection="column" gap="spacing.3">
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Badge color="positive" size="small">AI Catalog Match</Badge>
-            <Text size="xsmall" color="surface.text.gray.muted">In Stock</Text>
+            <Text size="xsmall" color="surface.text.gray.muted">In Stock ({item.stock || 10})</Text>
           </Box>
 
           <Text size="medium" weight="semibold">{item.name}</Text>
           <Text size="xsmall" color="surface.text.gray.subtle" truncateAfterLines={2}>
-            {item.description || 'High performance item ready for instant order.'}
+            {item.description || 'High performance item ready for instant Razorpay checkout.'}
           </Text>
 
           <Box display="flex" justifyContent="space-between" alignItems="center" marginTop="spacing.2">
@@ -88,13 +86,14 @@ function GenUIProductCard({
 }
 
 export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [showA2AModal, setShowA2AModal] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isSendingRef = useRef(false);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -103,19 +102,21 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
   }, [messages, isTyping]);
 
   const handleSendMessage = async (customText?: string) => {
-    const textToSend = customText || inputValue;
-    if (!textToSend.trim()) return;
+    const textToSend = (customText !== undefined ? customText : inputValue).trim();
+    if (!textToSend || isSendingRef.current) return;
+
+    isSendingRef.current = true;
+    setIsTyping(true);
 
     const userMsg: ChatMessageItem = {
-      id: `usr_${Date.now()}`,
+      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       sender: 'user',
       text: textToSend,
       timestamp: getCurrentTimeString(),
     };
 
     setMessages((prev) => [...prev, userMsg]);
-    if (!customText) setInputValue("");
-    setIsTyping(true);
+    setInputValue("");
 
     try {
       const response = await fetch('/api/ai/chat', {
@@ -124,8 +125,8 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
         body: JSON.stringify({
           message: textToSend,
           session_id: sessionId,
-          history: messages,
-          merchant_id: 'm_demo_101'
+          history: messages.slice(-4),
+          mode: 'customer'
         })
       });
 
@@ -133,7 +134,7 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
       if (data.session_id) setSessionId(data.session_id);
 
       const aiMsg: ChatMessageItem = {
-        id: `ai_${Date.now()}`,
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         sender: 'assistant',
         text: data.reply || 'I found matching products in our catalog.',
         timestamp: getCurrentTimeString(),
@@ -153,12 +154,13 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
       setMessages((prev) => [...prev, fallbackMsg]);
     } finally {
       setIsTyping(false);
+      isSendingRef.current = false;
     }
   };
 
   const handleAddToCartAndCheckout = (item: any) => {
-    alert(`Added ${item.name} (₹${item.price}) to checkout! Razorpay Order ready.`);
     onDismiss();
+    router.push(`/store/checkout?sku=${encodeURIComponent(item.sku || item.name)}`);
   };
 
   return (
@@ -175,17 +177,8 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
             <Box display="flex" justifyContent="space-between" alignItems="center">
               <Box display="flex" alignItems="center" gap="spacing.2">
                 <Indicator color="positive" size="medium" />
-                <Text size="xsmall" weight="semibold">AI Gateway Active</Text>
+                <Text size="xsmall" weight="semibold">AI Gateway Active &amp; Connected</Text>
               </Box>
-              <Button
-                variant="tertiary"
-                size="small"
-                icon={SparklesIcon}
-                iconPosition="left"
-                onClick={() => setShowA2AModal(true)}
-              >
-                A2A Gateway Simulator
-              </Button>
             </Box>
 
             <Divider />
@@ -239,22 +232,34 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
 
             {/* Quick Sample Action Chips */}
             <Box display="flex" gap="spacing.2" overflow="auto" paddingY="spacing.1">
-              {['Headphones under ₹5,000', 'Compare Asus TUF vs Acer Nitro', 'Gaming Laptops'].map((promptText) => (
-                <div key={promptText} onClick={() => handleSendMessage(promptText)} style={{ cursor: 'pointer' }}>
-                  <Chip>{promptText}</Chip>
-                </div>
+              {[
+                'Headphones under ₹5,000',
+                'Compare Asus TUF vs Acer Nitro',
+                'Wireless Mouse'
+              ].map((promptText) => (
+                <Button
+                  key={promptText}
+                  variant="secondary"
+                  size="xsmall"
+                  onClick={() => handleSendMessage(promptText)}
+                >
+                  {promptText}
+                </Button>
               ))}
             </Box>
 
             {/* Blade ChatInput Component */}
             <Box borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3">
-              <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}>
-                <ChatInput
-                  placeholder="Ask about products, specs, or instant checkout..."
-                  value={inputValue}
-                  onChange={({ value }: any) => setInputValue(value || '')}
-                />
-              </form>
+              <ChatInput
+                placeholder="Ask about products, specs, or instant checkout..."
+                value={inputValue}
+                onChange={({ value }: any) => setInputValue(value || '')}
+                onSubmit={({ value }: any) => {
+                  handleSendMessage(value || inputValue);
+                }}
+                hideFileUpload={true}
+                isGenerating={isTyping}
+              />
             </Box>
 
           </Box>
@@ -263,13 +268,6 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
           <Button variant="secondary" onClick={onDismiss} isFullWidth>Close Assistant</Button>
         </DrawerFooter>
       </Drawer>
-
-      {/* Agent-to-Agent Simulator Modal */}
-      <AgentToAgentModal
-        isOpen={showA2AModal}
-        onDismiss={() => setShowA2AModal(false)}
-        onSelectProductForCheckout={handleAddToCartAndCheckout}
-      />
     </BladeRoot>
   );
 }
