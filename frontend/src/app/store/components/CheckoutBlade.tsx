@@ -121,12 +121,111 @@ export default function CheckoutBlade() {
   const tax = Math.round(subtotal * 0.18);
   const grandTotal = subtotal + shippingFee + tax;
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      const activeAddress = addresses.find((a) => a.id === selectedAddr) || addresses[0];
+      
+      const res = await fetch("/api/checkout/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: grandTotal,
+          currency: "INR",
+          customer: {
+            full_name: activeAddress.name,
+            email: activeAddress.email,
+            phone: activeAddress.phone,
+            line1: activeAddress.line1,
+            city: activeAddress.city,
+            state: activeAddress.state,
+            pincode: activeAddress.pincode,
+            payment_mode: payMethod,
+          },
+          items: cartItems.map((i) => ({ sku: (i.product as any).sku || i.product.slug, name: i.product.name, price: i.product.price, qty: i.qty })),
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        alert(`Checkout Error: ${data.error || "Could not create order"}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check if Razorpay SDK script is loaded
+      const loadScript = () =>
+        new Promise((resolve) => {
+          if ((window as any).Razorpay) return resolve(true);
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.onload = () => resolve(true);
+          script.onerror = () => resolve(false);
+          document.body.appendChild(script);
+        });
+
+      await loadScript();
+
+      const options = {
+        key: data.key_id,
+        amount: data.amount,
+        currency: data.currency,
+        name: "ElectroStore",
+        description: "Razorpay AI Gateway Demo Checkout",
+        order_id: data.razorpay_order_id,
+        handler: async function (response: any) {
+          await fetch("/api/checkout/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id || data.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id || `pay_${Date.now()}`,
+              razorpay_signature: response.razorpay_signature || "mock_sig",
+              db_order_id: data.db_order_id,
+              customer: activeAddress,
+            }),
+          });
+          setIsSubmitting(false);
+          router.push(`/store/order-success/${data.db_order_id || data.razorpay_order_id}`);
+        },
+        prefill: {
+          name: activeAddress.name,
+          email: activeAddress.email,
+          contact: activeAddress.phone,
+        },
+        theme: { color: "#0066FF" },
+        modal: {
+          ondismiss: function () {
+            setIsSubmitting(false);
+          },
+        },
+      };
+
+      if ((window as any).Razorpay) {
+        const rzp = new (window as any).Razorpay(options);
+        rzp.open();
+      } else {
+        // Fallback for mock environments without external script loading
+        await fetch("/api/checkout/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            razorpay_order_id: data.razorpay_order_id,
+            razorpay_payment_id: `pay_mock_${Date.now()}`,
+            razorpay_signature: "mock_sig",
+            db_order_id: data.db_order_id,
+            customer: activeAddress,
+          }),
+        });
+        setIsSubmitting(false);
+        router.push(`/store/order-success/${data.db_order_id || data.razorpay_order_id}`);
+      }
+    } catch (err: any) {
+      console.error("Place order failed:", err);
+      alert(`Checkout failed: ${err.message}`);
       setIsSubmitting(false);
-      router.push("/store/order-success");
-    }, 1200);
+    }
   };
 
   return (

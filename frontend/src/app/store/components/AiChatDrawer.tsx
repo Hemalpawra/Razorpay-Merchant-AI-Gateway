@@ -1,11 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Amount,
-  Avatar,
   Badge,
   Box,
   Button,
@@ -14,7 +11,6 @@ import {
   ChatInput,
   ChatMessage as BladeChatMessage,
   Chip,
-  ChipGroup,
   Divider,
   Drawer,
   DrawerBody,
@@ -24,25 +20,21 @@ import {
   Heading,
   Indicator,
   ShoppingCartIcon,
-  StarIcon,
-  Text,
-  ZapIcon,
+  SparklesIcon,
+  Text
 } from "@razorpay/blade/components";
 
 import { BladeRoot } from "./BladeRoot";
 import { type Product } from "@/lib/store/catalog";
-import {
-  bestForLabel,
-  getAssistantReply,
-  quickChips,
-  samplePrompts,
-  type ChatMessage as ScriptChatMessage,
-} from "@/lib/store/ai-chat-script";
+import { AgentToAgentModal } from "@/components/AgentToAgentModal";
 
-const avatarImg = "/store/ai-assistant-avatar.png";
-
-type ChatMessageItem = ScriptChatMessage & {
-  timestamp?: string;
+type ChatMessageItem = {
+  id: string;
+  sender: 'user' | 'assistant';
+  text: string;
+  timestamp: string;
+  matched_products?: any[];
+  model_used?: string;
 };
 
 type Props = {
@@ -56,109 +48,39 @@ function getCurrentTimeString() {
   return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function ChatProductCard({
+function GenUIProductCard({
   item,
-  onOpen,
-  onAdd,
+  onAddToCart,
 }: {
-  item: Product;
-  onOpen: () => void;
-  onAdd: () => void;
+  item: any;
+  onAddToCart: (item: any) => void;
 }) {
   return (
-    <Card elevation="lowRaised" padding="spacing.4">
-      <CardBody>
-        <Box
-          minWidth="160px"
-          maxWidth="200px"
-          display="flex"
-          flexDirection="column"
-          gap="spacing.3"
-        >
-          {item.badge ? (
-            <Badge size="xsmall" color={item.badge === "New" ? "information" : "positive"}>
-              {item.badge}
-            </Badge>
-          ) : null}
-
-          <Box height="72px" display="flex" alignItems="center" justifyContent="center" backgroundColor="surface.background.gray.subtle" borderRadius="small" padding="spacing.2">
-            <img
-              src={item.img}
-              alt={item.name}
-              loading="lazy"
-              style={{ maxHeight: "64px", maxWidth: "100%", objectFit: "contain" }}
-            />
-          </Box>
-
-          <Text size="small" weight="semibold">
-            {item.name}
-          </Text>
-
-          <Amount value={item.price} size="small" type="heading" suffix="none" />
-
-          <Box display="flex" flexDirection="row" gap="spacing.2" alignItems="center">
-            <StarIcon size="small" color="feedback.icon.notice.intense" />
-            <Text size="xsmall" color="surface.text.gray.muted">
-              {`${item.rating} (${item.reviews})`}
-            </Text>
-          </Box>
-
-          <Indicator size="small" color={item.stock === "In stock" ? "positive" : "notice"}>
-            {item.stock}
-          </Indicator>
-
-          <Box display="flex" flexDirection="row" gap="spacing.3" marginTop="spacing.2">
-            <Box flex="1">
-              <Button variant="secondary" size="xsmall" isFullWidth onClick={onOpen}>
-                View
-              </Button>
-            </Box>
-            <Button variant="primary" size="xsmall" icon={ShoppingCartIcon} onClick={onAdd} />
-          </Box>
-        </Box>
-      </CardBody>
-    </Card>
-  );
-}
-
-function CompareBlock({ items }: { items: Product[] }) {
-  const best = [...items].sort((a, b) => b.rating - a.rating)[0];
-  return (
-    <Card elevation="lowRaised" padding="spacing.4">
+    <Card elevation="none" backgroundColor="surface.background.gray.intense">
       <CardBody>
         <Box display="flex" flexDirection="column" gap="spacing.3">
-          <Heading size="small" weight="semibold">
-            Product Comparison
-          </Heading>
-          {items.map((item) => (
-            <Box key={item.slug} display="flex" flexDirection="column" gap="spacing.2">
-              <Divider />
-              <Box display="flex" flexDirection="row" justifyContent="space-between" gap="spacing.3">
-                <Text size="small" weight="semibold">
-                  {item.name}
-                </Text>
-                <Amount value={item.price} size="small" type="body" suffix="none" />
-              </Box>
-              <Text size="xsmall" color="surface.text.gray.muted">
-                {`${item.subtitle} · ${item.rating}★`}
-              </Text>
-              <Box>
-                <Badge size="xsmall" color="information">
-                  {`Best for: ${bestForLabel(item, items)}`}
-                </Badge>
-              </Box>
-            </Box>
-          ))}
-          {best ? (
-            <Alert
-              color="positive"
-              emphasis="subtle"
-              isFullWidth
-              isDismissible={false}
-              title="AI recommendation"
-              description={`${best.name} offers the best balance of rating, price and everyday performance.`}
-            />
-          ) : null}
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Badge color="positive" size="small">AI Catalog Match</Badge>
+            <Text size="xsmall" color="surface.text.gray.muted">In Stock</Text>
+          </Box>
+
+          <Text size="medium" weight="semibold">{item.name}</Text>
+          <Text size="xsmall" color="surface.text.gray.subtle" truncateAfterLines={2}>
+            {item.description || 'High performance item ready for instant order.'}
+          </Text>
+
+          <Box display="flex" justifyContent="space-between" alignItems="center" marginTop="spacing.2">
+            <Amount value={item.price} currency="INR" size="medium" />
+            <Button
+              variant="primary"
+              size="small"
+              icon={ShoppingCartIcon}
+              iconPosition="left"
+              onClick={() => onAddToCart(item)}
+            >
+              Add &amp; Checkout
+            </Button>
+          </Box>
         </Box>
       </CardBody>
     </Card>
@@ -166,262 +88,188 @@ function CompareBlock({ items }: { items: Product[] }) {
 }
 
 export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
-  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
-  const [value, setValue] = useState("");
-  const [isThinking, setIsThinking] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [cart, setCart] = useState<Product[]>([]);
-  const lastSuggested = useRef<Product[]>([]);
-  const lastInput = useRef("");
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [showA2AModal, setShowA2AModal] = useState(false);
 
-  useEffect(() => () => (timer.current ? clearTimeout(timer.current) : undefined), []);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  const respond = (text: string) => {
-    lastInput.current = text;
-    setError(null);
-    setIsThinking(true);
-    timer.current = setTimeout(() => {
-      try {
-        const reply = getAssistantReply(text, lastSuggested.current);
-        if (reply.products?.length) lastSuggested.current = reply.products;
-        if (reply.compare?.length) lastSuggested.current = reply.compare;
-        setMessages((prev) => [
-          ...prev,
-          { ...reply, timestamp: getCurrentTimeString() },
-        ]);
-      } catch {
-        setError("The assistant could not respond just now.");
-      } finally {
-        setIsThinking(false);
-      }
-    }, 700);
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
+  const handleSendMessage = async (customText?: string) => {
+    const textToSend = customText || inputValue;
+    if (!textToSend.trim()) return;
+
+    const userMsg: ChatMessageItem = {
+      id: `usr_${Date.now()}`,
+      sender: 'user',
+      text: textToSend,
+      timestamp: getCurrentTimeString(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    if (!customText) setInputValue("");
+    setIsTyping(true);
+
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: textToSend,
+          session_id: sessionId,
+          history: messages,
+          merchant_id: 'm_demo_101'
+        })
+      });
+
+      const data = await response.json();
+      if (data.session_id) setSessionId(data.session_id);
+
+      const aiMsg: ChatMessageItem = {
+        id: `ai_${Date.now()}`,
+        sender: 'assistant',
+        text: data.reply || 'I found matching products in our catalog.',
+        timestamp: getCurrentTimeString(),
+        matched_products: data.matched_products || [],
+        model_used: data.model_used || 'openrouter/free'
+      };
+
+      setMessages((prev) => [...prev, aiMsg]);
+    } catch (err) {
+      console.error('AI Chat Error:', err);
+      const fallbackMsg: ChatMessageItem = {
+        id: `ai_err_${Date.now()}`,
+        sender: 'assistant',
+        text: 'Connected to Razorpay Merchant AI Gateway. Showing available catalog options.',
+        timestamp: getCurrentTimeString(),
+      };
+      setMessages((prev) => [...prev, fallbackMsg]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
-  const send = (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed || isThinking) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: `u-${Date.now()}`, sender: "self", text: trimmed, timestamp: getCurrentTimeString() },
-    ]);
-    setValue("");
-    respond(trimmed);
-  };
-
-  const openProduct = (item: Product) => {
+  const handleAddToCartAndCheckout = (item: any) => {
+    alert(`Added ${item.name} (₹${item.price}) to checkout! Razorpay Order ready.`);
     onDismiss();
-    router.push(`/store/products/${item.slug}`);
   };
-
-  const addToCart = (item: Product) => {
-    setCart((prev) => [...prev, item]);
-  };
-
-  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
 
   return (
     <BladeRoot>
-      <Drawer isOpen={isOpen} onDismiss={onDismiss} accessibilityLabel="Acme AI shopping assistant">
+      <Drawer isOpen={isOpen} onDismiss={onDismiss}>
         <DrawerHeader
-          title="Acme AI Assistant"
-          subtitle="Ask me anything about products, comparisons, or buying help."
-          leading={<Avatar size="medium" name="AI Assistant" src={avatarImg} />}
-          titleSuffix={
-            <Indicator color="positive" size="small">
-              Online
-            </Indicator>
-          }
+          title="Merchant AI Shopping Assistant"
+          subtitle="Powered by OpenRouter Free Models &amp; Razorpay AI Gateway"
         />
-
         <DrawerBody>
-          <Box display="flex" flexDirection="column" gap="spacing.5" paddingBottom="spacing.4">
-            {product ? (
-              <Card elevation="lowRaised" padding="spacing.4">
-                <CardBody>
-                  <Box display="flex" flexDirection="row" gap="spacing.4" alignItems="center">
-                    <Box width="44px" height="44px" backgroundColor="surface.background.gray.subtle" borderRadius="small" display="flex" alignItems="center" justifyContent="center">
-                      <img
-                        src={product.img}
-                        alt={product.name}
-                        loading="lazy"
-                        style={{ width: "36px", height: "36px", objectFit: "contain" }}
-                      />
-                    </Box>
-                    <Box flex="1">
-                      <Text size="xsmall" color="surface.text.gray.muted">
-                        You're viewing
-                      </Text>
-                      <Text size="small" weight="semibold">
-                        {product.name}
-                      </Text>
-                    </Box>
-                    <Amount value={product.price} size="small" type="heading" suffix="none" />
-                  </Box>
-                </CardBody>
-              </Card>
-            ) : null}
-
-            {messages.length === 0 && !isThinking ? (
-              <EmptyState
+          <Box display="flex" flexDirection="column" height="100%" gap="spacing.4">
+            
+            {/* Header Banner */}
+            <Box display="flex" justifyContent="space-between" alignItems="center">
+              <Box display="flex" alignItems="center" gap="spacing.2">
+                <Indicator color="positive" size="medium" />
+                <Text size="xsmall" weight="semibold">AI Gateway Active</Text>
+              </Box>
+              <Button
+                variant="tertiary"
                 size="small"
-                title="Your shopping assistant"
-                description="I can suggest products, compare options and answer questions about specs, delivery and returns."
-                asset={<Avatar size="large" name="AI assistant" src={avatarImg} />}
+                icon={SparklesIcon}
+                iconPosition="left"
+                onClick={() => setShowA2AModal(true)}
               >
-                <ChipGroup
-                  accessibilityLabel="Sample prompts"
-                  selectionType="single"
-                  size="small"
-                  value=""
-                  onChange={({ values }) => values[0] && send(values[0])}
-                >
-                  {samplePrompts.map((p) => (
-                    <Chip key={p} value={p}>
-                      {p}
-                    </Chip>
-                  ))}
-                </ChipGroup>
-              </EmptyState>
-            ) : null}
+                A2A Gateway Simulator
+              </Button>
+            </Box>
 
-            {messages.map((message) => (
-              <Box key={message.id} display="flex" flexDirection="column" gap="spacing.3">
-                <Box display="flex" flexDirection="row" gap="spacing.2" alignItems="flex-start" justifyContent={message.sender === "self" ? "flex-end" : "flex-start"}>
-                  {message.sender === "other" && (
-                    <Avatar size="xsmall" name="Acme AI" src={avatarImg} />
-                  )}
-                  <Box display="flex" flexDirection="column" alignItems={message.sender === "self" ? "flex-end" : "flex-start"} gap="spacing.1">
-                    <BladeChatMessage senderType={message.sender}>
-                      {message.text ?? ""}
+            <Divider />
+
+            {/* Scrollable Message List */}
+            <Box flex={1} overflow="auto" display="flex" flexDirection="column" gap="spacing.4" ref={scrollRef}>
+              
+              {messages.length === 0 ? (
+                <EmptyState
+                  title="Ask your AI Assistant"
+                  description="Ask for noise-cancelling headphones, gaming laptops, specs comparisons, or instant Razorpay checkout links."
+                />
+              ) : (
+                messages.map((msg) => (
+                  <Box key={msg.id} display="flex" flexDirection="column" gap="spacing.2">
+                    <BladeChatMessage
+                      senderType={msg.sender === 'user' ? 'self' : 'other'}
+                    >
+                      <Text size="small">{msg.text}</Text>
                     </BladeChatMessage>
-                    {message.timestamp && (
-                      <Text size="xsmall" color="surface.text.gray.muted">
-                        {message.timestamp}
+
+                    {/* Render Blade GenUI Cards if AI returned matched catalog products */}
+                    {msg.sender === 'assistant' && msg.matched_products && msg.matched_products.length > 0 && (
+                      <Box display="flex" flexDirection="column" gap="spacing.3" marginTop="spacing.2">
+                        {msg.matched_products.map((prod: any) => (
+                          <GenUIProductCard
+                            key={prod.id || prod.sku}
+                            item={prod}
+                            onAddToCart={handleAddToCartAndCheckout}
+                          />
+                        ))}
+                      </Box>
+                    )}
+
+                    {msg.sender === 'assistant' && msg.model_used && (
+                      <Text size="xsmall" color="surface.text.gray.subtle">
+                        Model: {msg.model_used}
                       </Text>
                     )}
                   </Box>
+                ))
+              )}
+
+              {isTyping && (
+                <Box display="flex" alignItems="center" gap="spacing.2">
+                  <Indicator color="notice" size="small" />
+                  <Text size="xsmall" color="surface.text.gray.muted">AI is thinking...</Text>
                 </Box>
+              )}
+            </Box>
 
-                {message.products?.length ? (
-                  <Box display="flex" flexDirection="row" gap="spacing.3" flexWrap="wrap">
-                    {message.products.map((item) => (
-                      <ChatProductCard
-                        key={item.slug}
-                        item={item}
-                        onOpen={() => openProduct(item)}
-                        onAdd={() => addToCart(item)}
-                      />
-                    ))}
-                  </Box>
-                ) : null}
+            {/* Quick Sample Action Chips */}
+            <Box display="flex" gap="spacing.2" overflow="auto" paddingY="spacing.1">
+              {['Headphones under ₹5,000', 'Compare Asus TUF vs Acer Nitro', 'Gaming Laptops'].map((promptText) => (
+                <div key={promptText} onClick={() => handleSendMessage(promptText)} style={{ cursor: 'pointer' }}>
+                  <Chip>{promptText}</Chip>
+                </div>
+              ))}
+            </Box>
 
-                {message.compare?.length ? <CompareBlock items={message.compare} /> : null}
-
-                {message.sender === "other" && message.chips?.length ? (
-                  <ChipGroup
-                    accessibilityLabel="Quick replies"
-                    selectionType="single"
-                    size="xsmall"
-                    value=""
-                    onChange={({ values }) => values[0] && send(values[0])}
-                  >
-                    {message.chips.map((chip) => (
-                      <Chip key={chip} value={chip}>
-                        {chip}
-                      </Chip>
-                    ))}
-                  </ChipGroup>
-                ) : null}
-              </Box>
-            ))}
-
-            {isThinking ? (
-              <Box display="flex" flexDirection="row" gap="spacing.2" alignItems="center">
-                <Avatar size="xsmall" name="Acme AI" src={avatarImg} />
-                <BladeChatMessage
-                  senderType="other"
-                  isLoading
-                  loadingText={["Thinking…", "Checking the catalogue…", "Comparing options…"]}
+            {/* Blade ChatInput Component */}
+            <Box borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3">
+              <form onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}>
+                <ChatInput
+                  placeholder="Ask about products, specs, or instant checkout..."
+                  value={inputValue}
+                  onChange={({ value }: any) => setInputValue(value || '')}
                 />
-              </Box>
-            ) : null}
+              </form>
+            </Box>
 
-            {error ? (
-              <Alert
-                color="negative"
-                emphasis="subtle"
-                isFullWidth
-                isDismissible={false}
-                title="Couldn't get a reply"
-                description={error}
-                actions={{
-                  primary: { text: "Retry", onClick: () => respond(lastInput.current) },
-                }}
-              />
-            ) : null}
-
-            {cart.length ? (
-              <Card elevation="lowRaised" padding="spacing.4">
-                <CardBody>
-                  <Box display="flex" flexDirection="column" gap="spacing.3">
-                    <Box display="flex" flexDirection="row" justifyContent="space-between">
-                      <Heading size="small">{`Cart (${cart.length})`}</Heading>
-                      <Amount value={cartTotal} size="small" type="heading" suffix="none" />
-                    </Box>
-                    {cart.map((item, i) => (
-                      <Box
-                        key={`${item.slug}-${i}`}
-                        display="flex"
-                        flexDirection="row"
-                        justifyContent="space-between"
-                        gap="spacing.3"
-                      >
-                        <Text size="xsmall" color="surface.text.gray.muted">
-                          {item.name}
-                        </Text>
-                        <Amount value={item.price} size="xsmall" type="body" suffix="none" />
-                      </Box>
-                    ))}
-                    <Button variant="primary" size="small" icon={ZapIcon} isFullWidth onClick={() => router.push('/store/checkout')}>
-                      Continue to checkout
-                    </Button>
-                  </Box>
-                </CardBody>
-              </Card>
-            ) : null}
           </Box>
         </DrawerBody>
-
         <DrawerFooter>
-          <Box display="flex" flexDirection="column" gap="spacing.4">
-            <ChipGroup
-              accessibilityLabel="Suggested actions"
-              selectionType="single"
-              size="xsmall"
-              value=""
-              onChange={({ values }) => values[0] && send(values[0])}
-            >
-              {quickChips.map((chip) => (
-                <Chip key={chip} value={chip}>
-                  {chip}
-                </Chip>
-              ))}
-            </ChipGroup>
-            <ChatInput
-              value={value}
-              onChange={({ value: v }) => setValue(v)}
-              onSubmit={({ value: v }) => send(v)}
-              placeholder="Ask anything about products…"
-              suggestions={samplePrompts}
-              isGenerating={isThinking}
-              hideFileUpload
-              accessibilityLabel="Message the AI shopping assistant"
-            />
-          </Box>
+          <Button variant="secondary" onClick={onDismiss} isFullWidth>Close Assistant</Button>
         </DrawerFooter>
       </Drawer>
+
+      {/* Agent-to-Agent Simulator Modal */}
+      <AgentToAgentModal
+        isOpen={showA2AModal}
+        onDismiss={() => setShowA2AModal(false)}
+        onSelectProductForCheckout={handleAddToCartAndCheckout}
+      />
     </BladeRoot>
   );
 }

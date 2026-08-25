@@ -5,34 +5,40 @@ export type AuditEventType =
   | 'catalog_search_started'
   | 'catalog_search_completed'
   | 'product_selected'
+  | 'product_created'
+  | 'product_updated'
+  | 'product_deleted'
   | 'budget_check_passed'
   | 'budget_check_failed'
   | 'details_missing'
   | 'approval_requested'
   | 'approval_received'
   | 'razorpay_order_created'
+  | 'checkout_initiated'
+  | 'payment_captured'
   | 'payment_succeeded'
   | 'payment_failed'
   | 'order_completed'
-  | 'order_cancelled';
+  | 'order_updated'
+  | 'order_cancelled'
+  | 'session_updated'
+  | 'catalog_imported'
+  | 'merchant_settings_updated'
+  | (string & {});
 
 export interface AuditLogOptions {
   supabase: SupabaseClient;
   merchant_id: string;
-  session_id: string;
+  session_id?: string;
   order_id?: string;
-  actor_type: 'system' | 'customer' | 'merchant' | 'ai_assistant';
+  actor_type: 'system' | 'customer' | 'merchant' | 'ai_assistant' | string;
   event_type: AuditEventType;
   title: string;
   description?: string;
-  result?: 'success' | 'failure' | 'info' | 'warning';
+  result?: 'success' | 'failure' | 'info' | 'warning' | string;
   meta_json?: Record<string, any>;
 }
 
-/**
- * Helper function to safely write events to the append-only audit_logs table.
- * It catches errors internally so it doesn't break the main flow.
- */
 export async function logAuditEvent(options: AuditLogOptions): Promise<void> {
   const { 
     supabase, merchant_id, session_id, order_id, 
@@ -44,8 +50,8 @@ export async function logAuditEvent(options: AuditLogOptions): Promise<void> {
       .from('audit_logs')
       .insert({
         merchant_id,
-        session_id,
-        order_id,
+        session_id: session_id || null,
+        order_id: order_id || null,
         actor_type,
         event_type,
         title,

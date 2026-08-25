@@ -41,12 +41,42 @@ export function ManualAddState({
   const [status, setStatus] = useState('Active');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSavedSuccess(true);
-    setTimeout(() => {
-      onSave();
-    }, 1200);
+    if (!name || !sku || !price) {
+      alert('Please fill in Product Name, SKU Code, and Price.');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sku,
+          name,
+          category,
+          price: parseFloat(price) || 999,
+          stock_qty: parseInt(stock) || 10,
+          description,
+          image_url: imageUrl || null,
+          tags: tags ? tags.split(',').map((t) => t.trim()) : [],
+          status: status.toLowerCase() === 'active' ? 'active' : 'draft',
+        }),
+      });
+
+      if (res.ok) {
+        setSavedSuccess(true);
+        setTimeout(() => {
+          onSave();
+        }, 1200);
+      } else {
+        const err = await res.json();
+        alert(`Save failed: ${err.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error saving product: ${err.message}`);
+    }
   };
 
   return (
