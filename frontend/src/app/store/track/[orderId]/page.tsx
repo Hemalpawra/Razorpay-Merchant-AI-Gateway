@@ -17,9 +17,11 @@ import {
   FileTextIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
-export default function TrackShipmentPage({ params }: { params: { orderId: string } }) {
-  const orderId = params?.orderId || 'ORD-10231';
+export default function TrackShipmentPage() {
+  const params = useParams();
+  const orderId = (params?.orderId as string) || 'ORD-10231';
 
   const steps = [
     { title: 'Preparing Order', desc: 'Item allocated & quality checked at Bengaluru Hub', time: '21 Jun, 10:35 AM', done: true },

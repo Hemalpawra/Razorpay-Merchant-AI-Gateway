@@ -18,9 +18,11 @@ import {
   SparklesIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 
-export default function OrderSuccessPage({ params }: { params: { orderId: string } }) {
-  const orderId = params?.orderId || 'ORD-10231';
+export default function OrderSuccessPage() {
+  const params = useParams();
+  const orderId = (params?.orderId as string) || 'ORD-10231';
 
   return (
     <Box padding="spacing.8" display="flex" flexDirection="column" gap="spacing.6" maxWidth="800px" marginX="auto">
