@@ -79,6 +79,9 @@ export class CatalogGatewayEngine {
 
     const productsList: any[] = dbProducts || [];
 
+    const lower = cleanMessage.toLowerCase();
+    const isGreeting = /^(hi|hello|hey|greetings|good morning|good evening|who are you|help)$/i.test(lower) || lower.length <= 3;
+
     // Parse max budget from prompt if present (e.g. "under 5000", "under ₹5,000", "below 60000")
     let maxBudget: number | null = null;
     const budgetMatch = cleanMessage.match(/(?:under|below|budget|less than|<|₹|\s)\s*₹?\s*(\d+[\d,]*)/i);
@@ -89,9 +92,6 @@ export class CatalogGatewayEngine {
         maxBudget = parsed;
       }
     }
-
-    const lower = cleanMessage.toLowerCase();
-    const isGreeting = /^(hi|hello|hey|greetings|good morning|good evening|who are you)/i.test(lower);
 
     let matchedProducts: any[] = [];
 
@@ -114,18 +114,18 @@ export class CatalogGatewayEngine {
 
         return keywords.some(kw => nameLower.includes(kw) || catLower.includes(kw) || descLower.includes(kw));
       });
-    }
 
-    // Fallback matching to top products if no exact keyword match was found
-    if (matchedProducts.length === 0) {
-      if (maxBudget !== null) {
-        matchedProducts = productsList.filter(p => Number(p.price) <= maxBudget).slice(0, 3);
-      }
+      // Fallback matching to top products if no exact keyword match was found for a non-greeting search
       if (matchedProducts.length === 0) {
-        matchedProducts = productsList.slice(0, 3);
+        if (maxBudget !== null) {
+          matchedProducts = productsList.filter(p => Number(p.price) <= maxBudget).slice(0, 3);
+        }
+        if (matchedProducts.length === 0) {
+          matchedProducts = productsList.slice(0, 3);
+        }
+      } else {
+        matchedProducts = matchedProducts.slice(0, 4);
       }
-    } else {
-      matchedProducts = matchedProducts.slice(0, 4);
     }
 
     // 4. OpenRouter LLM Prompt
@@ -138,7 +138,8 @@ You are helping ${mode === 'agent_to_agent' ? 'an external Buyer AI Agent' : 'a 
 Current Active Merchant Catalog:\n${catalogContextStr}
 
 Instructions:
-- Be warm, helpful, concise, and professional.
+- If the user says "Hi", "Hello", or greets you, respond warmly and ask what product or specs they are looking for today.
+- For product questions, be warm, helpful, concise, and professional.
 - Focus on answering questions using the merchant's catalog products.
 - Always include accurate prices in INR (₹).
 - Mention that purchases can be completed instantly via Razorpay Checkout.`;
@@ -159,7 +160,7 @@ Instructions:
 
     if (!replyText || llmResult.isFallback) {
       if (isGreeting) {
-        replyText = `Hello! 👋 I'm your Merchant AI Assistant. How can I help you find products or complete a purchase today? Here are our top featured items ready for instant Razorpay Checkout:`;
+        replyText = `Hello! 👋 Welcome to ElectroStore. I am your Merchant AI Shopping Assistant. How can I help you find noise-cancelling headphones, gaming laptops, or accessories today?`;
       } else if (maxBudget !== null) {
         replyText = `Here are top recommendations from our active catalog under ₹${maxBudget.toLocaleString('en-IN')}:`;
       } else {

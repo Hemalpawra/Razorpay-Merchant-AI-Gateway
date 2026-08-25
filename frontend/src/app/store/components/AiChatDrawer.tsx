@@ -11,13 +11,11 @@ import {
   CardBody,
   ChatInput,
   ChatMessage as BladeChatMessage,
-  Chip,
   Divider,
   Drawer,
   DrawerBody,
   DrawerFooter,
   DrawerHeader,
-  EmptyState,
   Indicator,
   ShoppingCartIcon,
   Text
@@ -85,15 +83,28 @@ function GenUIProductCard({
   );
 }
 
+const INITIAL_WELCOME_MESSAGE: ChatMessageItem = {
+  id: 'welcome_msg',
+  sender: 'assistant',
+  text: "Hello! 👋 I'm your ElectroStore AI Assistant. Ask me about products, compare specs, or request instant Razorpay checkout links!",
+  timestamp: getCurrentTimeString()
+};
+
 export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
   const router = useRouter();
-  const [messages, setMessages] = useState<ChatMessageItem[]>([]);
+  const [messages, setMessages] = useState<ChatMessageItem[]>([INITIAL_WELCOME_MESSAGE]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSendingRef = useRef(false);
+
+  useEffect(() => {
+    if (product) {
+      handleSendMessage(`Tell me about ${product.name}`);
+    }
+  }, [product]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -148,7 +159,7 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
       const fallbackMsg: ChatMessageItem = {
         id: `ai_err_${Date.now()}`,
         sender: 'assistant',
-        text: 'Connected to Razorpay Merchant AI Gateway. Showing available catalog options.',
+        text: 'Connected to Razorpay Merchant AI Gateway. How can I assist you with products today?',
         timestamp: getCurrentTimeString(),
       };
       setMessages((prev) => [...prev, fallbackMsg]);
@@ -171,85 +182,90 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
           subtitle="Powered by OpenRouter Free Models &amp; Razorpay AI Gateway"
         />
         <DrawerBody>
-          <Box display="flex" flexDirection="column" height="100%" gap="spacing.4">
+          <Box display="flex" flexDirection="column" height="100%" justifyContent="space-between">
             
-            {/* Header Banner */}
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Box display="flex" alignItems="center" gap="spacing.2">
-                <Indicator color="positive" size="medium" />
-                <Text size="xsmall" weight="semibold">AI Gateway Active &amp; Connected</Text>
+            {/* Header Status Bar */}
+            <Box paddingBottom="spacing.3">
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box display="flex" alignItems="center" gap="spacing.2">
+                  <Indicator color="positive" size="small" />
+                  <Text size="xsmall" weight="semibold">AI Gateway Active &amp; Connected</Text>
+                </Box>
+                <Badge color="neutral" size="small">Live RAG Catalog</Badge>
               </Box>
+              <Divider marginTop="spacing.3" />
             </Box>
 
-            <Divider />
+            {/* Scrollable Message List Container */}
+            <Box
+              flex={1}
+              overflowY="auto"
+              display="flex"
+              flexDirection="column"
+              gap="spacing.4"
+              paddingRight="spacing.2"
+              ref={scrollRef}
+            >
+              {messages.map((msg) => (
+                <Box key={msg.id} display="flex" flexDirection="column" gap="spacing.2">
+                  <BladeChatMessage
+                    senderType={msg.sender === 'user' ? 'self' : 'other'}
+                  >
+                    <Text size="small">{msg.text}</Text>
+                  </BladeChatMessage>
 
-            {/* Scrollable Message List */}
-            <Box flex={1} overflow="auto" display="flex" flexDirection="column" gap="spacing.4" ref={scrollRef}>
-              
-              {messages.length === 0 ? (
-                <EmptyState
-                  title="Ask your AI Assistant"
-                  description="Ask for noise-cancelling headphones, gaming laptops, specs comparisons, or instant Razorpay checkout links."
-                />
-              ) : (
-                messages.map((msg) => (
-                  <Box key={msg.id} display="flex" flexDirection="column" gap="spacing.2">
-                    <BladeChatMessage
-                      senderType={msg.sender === 'user' ? 'self' : 'other'}
-                    >
-                      <Text size="small">{msg.text}</Text>
-                    </BladeChatMessage>
+                  {/* Render Blade GenUI Cards if AI returned matched catalog products */}
+                  {msg.sender === 'assistant' && msg.matched_products && msg.matched_products.length > 0 && (
+                    <Box display="flex" flexDirection="column" gap="spacing.3" marginTop="spacing.2" paddingLeft="spacing.3">
+                      {msg.matched_products.map((prod: any) => (
+                        <GenUIProductCard
+                          key={prod.id || prod.sku}
+                          item={prod}
+                          onAddToCart={handleAddToCartAndCheckout}
+                        />
+                      ))}
+                    </Box>
+                  )}
 
-                    {/* Render Blade GenUI Cards if AI returned matched catalog products */}
-                    {msg.sender === 'assistant' && msg.matched_products && msg.matched_products.length > 0 && (
-                      <Box display="flex" flexDirection="column" gap="spacing.3" marginTop="spacing.2">
-                        {msg.matched_products.map((prod: any) => (
-                          <GenUIProductCard
-                            key={prod.id || prod.sku}
-                            item={prod}
-                            onAddToCart={handleAddToCartAndCheckout}
-                          />
-                        ))}
-                      </Box>
-                    )}
-
-                    {msg.sender === 'assistant' && msg.model_used && (
+                  {msg.sender === 'assistant' && msg.model_used && (
+                    <Box paddingLeft="spacing.3">
                       <Text size="xsmall" color="surface.text.gray.subtle">
                         Model: {msg.model_used}
                       </Text>
-                    )}
-                  </Box>
-                ))
-              )}
+                    </Box>
+                  )}
+                </Box>
+              ))}
 
               {isTyping && (
-                <Box display="flex" alignItems="center" gap="spacing.2">
+                <Box display="flex" alignItems="center" gap="spacing.2" paddingLeft="spacing.2">
                   <Indicator color="notice" size="small" />
                   <Text size="xsmall" color="surface.text.gray.muted">AI is thinking...</Text>
                 </Box>
               )}
             </Box>
 
-            {/* Quick Sample Action Chips */}
-            <Box display="flex" gap="spacing.2" overflow="auto" paddingY="spacing.1">
-              {[
-                'Headphones under ₹5,000',
-                'Compare Asus TUF vs Acer Nitro',
-                'Wireless Mouse'
-              ].map((promptText) => (
-                <Button
-                  key={promptText}
-                  variant="secondary"
-                  size="xsmall"
-                  onClick={() => handleSendMessage(promptText)}
-                >
-                  {promptText}
-                </Button>
-              ))}
-            </Box>
+            {/* Bottom Controls Area */}
+            <Box borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3" marginTop="spacing.3">
+              {/* Quick Sample Action Prompt Buttons */}
+              <Box display="flex" gap="spacing.2" overflowX="auto" paddingBottom="spacing.3">
+                {[
+                  'Headphones under ₹5,000',
+                  'Compare Asus TUF vs Acer Nitro',
+                  'Wireless Mouse'
+                ].map((promptText) => (
+                  <Button
+                    key={promptText}
+                    variant="secondary"
+                    size="xsmall"
+                    onClick={() => handleSendMessage(promptText)}
+                  >
+                    {promptText}
+                  </Button>
+                ))}
+              </Box>
 
-            {/* Blade ChatInput Component */}
-            <Box borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3">
+              {/* Blade ChatInput Component */}
               <ChatInput
                 placeholder="Ask about products, specs, or instant checkout..."
                 value={inputValue}
