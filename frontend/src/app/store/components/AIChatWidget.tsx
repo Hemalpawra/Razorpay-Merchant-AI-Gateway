@@ -50,57 +50,55 @@ export function AIChatWidget() {
     },
   ]);
 
-  const handleSend = () => {
-    if (!inputMsg.trim()) return;
-    const userText = inputMsg;
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSend = async () => {
+    const userText = inputMsg.trim();
+    if (!userText || isLoading) return;
+
     const userMsg: ChatMsg = {
-      id: String(Date.now()),
+      id: crypto.randomUUID(),
       sender: 'user',
       text: userText,
       time: 'Just now',
     };
+    const history = messages.map((message) => ({ sender: message.sender, text: message.text }));
 
     setMessages((prev) => [...prev, userMsg]);
     setInputMsg('');
+    setIsLoading(true);
 
-    // AI Response Simulation based on intent
-    setTimeout(() => {
-      let aiMsg: ChatMsg;
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userText, history, mode: 'customer' }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to reach the store assistant');
 
-      if (userText.toLowerCase().includes('laptop') || userText.toLowerCase().includes('gaming')) {
-        aiMsg = {
-          id: String(Date.now() + 1),
-          sender: 'ai',
-          text: 'Great! Based on our catalog, here are top recommended Gaming Laptops with price-lock assurance:',
-          time: 'Just now',
-          products: [
-            { name: 'Asus TUF F15', price: '₹54,999', sku: 'ASUS-TUF-F15', desc: 'Core i5 11th Gen, 16GB RAM, RTX 3050' },
-            { name: 'Lenovo IdeaPad Gaming 3', price: '₹56,990', sku: 'LEN-IPG3', desc: 'Ryzen 5 5600H, 8GB RAM, RTX 3050' },
-          ],
-        };
-      } else if (userText.toLowerCase().includes('buy') || userText.toLowerCase().includes('asus') || userText.toLowerCase().includes('order')) {
-        aiMsg = {
-          id: String(Date.now() + 1),
-          sender: 'ai',
-          text: 'Excellent choice! I have created Razorpay Order ORD-10231 for Asus TUF F15 (₹54,999). Click below to complete checkout.',
-          time: 'Just now',
-          orderCreated: { orderId: 'ORD-10231', amount: '₹54,999', product: 'Asus TUF F15' },
-        };
-      } else {
-        aiMsg = {
-          id: String(Date.now() + 1),
-          sender: 'ai',
-          text: `I searched our merchant catalog for "${userText}". Would you like me to recommend matching products or check stock?`,
-          time: 'Just now',
-          products: [
-            { name: 'Wireless Noise Cancelling Earbuds', price: '₹1,999', sku: 'WE-100', desc: 'Active Noise Cancellation, 30h battery' },
-            { name: 'RGB Mechanical Keyboard', price: '₹4,499', sku: 'MK-100', desc: 'Hot-swappable switches, wireless' },
-          ],
-        };
-      }
-
-      setMessages((prev) => [...prev, aiMsg]);
-    }, 600);
+      setMessages((prev) => [...prev, {
+        id: crypto.randomUUID(),
+        sender: 'ai',
+        text: result.reply,
+        time: 'Just now',
+        products: (result.matched_products || []).map((product: any) => ({
+          name: product.name,
+          price: `₹${Number(product.price).toLocaleString('en-IN')}`,
+          sku: product.sku,
+          desc: product.description || `${product.category} · ${product.stock} in stock`,
+        })),
+      }]);
+    } catch (error) {
+      setMessages((prev) => [...prev, {
+        id: crypto.randomUUID(),
+        sender: 'ai',
+        text: error instanceof Error ? error.message : 'The store assistant is temporarily unavailable.',
+        time: 'Just now',
+      }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
