@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -39,7 +39,7 @@ import {
 } from "@razorpay/blade/components";
 
 import { BladeRoot } from "./BladeRoot";
-import { getProduct } from "@/lib/store/catalog";
+import { useStoreCart } from "./StoreCartProvider";
 
 type Address = {
   id: string;
@@ -105,15 +105,7 @@ export default function CheckoutBlade() {
   const [payMethod, setPayMethod] = useState("upi");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-
-  const cartItems = useMemo(
-    () => [
-      { product: getProduct("sony-wh-1000xm5"), qty: 1 },
-      { product: getProduct("boat-airdopes-131-pro"), qty: 1 },
-      { product: getProduct("jbl-tune-770nc"), qty: 1 },
-    ].filter((x): x is { product: NonNullable<ReturnType<typeof getProduct>>; qty: number } => Boolean(x.product)),
-    []
-  );
+  const { lines: cartItems } = useStoreCart();
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.qty, 0);
   const selectedShip = shippingMethods.find((s) => s.id === shipping);

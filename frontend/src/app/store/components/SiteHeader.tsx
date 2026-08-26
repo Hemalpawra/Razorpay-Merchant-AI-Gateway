@@ -19,6 +19,7 @@ import {
 } from "@razorpay/blade/components";
 import { BladeRoot } from "./BladeRoot";
 import { useAiChat } from "./StoreAiProvider";
+import { useStoreCart } from "./StoreCartProvider";
 
 export function Logo() {
   return (
@@ -45,6 +46,7 @@ export function Logo() {
 
 export function SiteHeader({ initialQuery = "" }: { initialQuery?: string }) {
   const { openChat } = useAiChat();
+  const { itemCount } = useStoreCart();
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
 
@@ -163,7 +165,7 @@ export function SiteHeader({ initialQuery = "" }: { initialQuery?: string }) {
                   icon={ShoppingBagIcon}
                   accessibilityLabel="View Cart"
                 >
-                  Cart (3)
+                  Cart ({itemCount})
                 </Button>
               </Link>
             </Box>

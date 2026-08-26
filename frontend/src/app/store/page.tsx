@@ -72,8 +72,11 @@ export default function StoreHomePage() {
   useEffect(() => {
     fetch('/api/products?status=active')
       .then((response) => response.json())
-      .then((data) => setProducts((data.products ?? []).map(mapDbProduct)))
-      .catch(() => setProducts([]));
+      .then((data) => {
+        const live = (data.products ?? []).map(mapDbProduct);
+        setProducts(live.length > 0 ? live : fallbackProducts);
+      })
+      .catch(() => setProducts(fallbackProducts));
   }, []);
 
   const featured = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 6);

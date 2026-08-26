@@ -81,8 +81,11 @@ function ProductsContent() {
   useEffect(() => {
     fetch('/api/products?status=active')
       .then((response) => response.json())
-      .then((data) => setLiveProducts((data.products ?? []).map(mapDbProduct)))
-      .catch(() => setLiveProducts([]));
+      .then((data) => {
+        const live = (data.products ?? []).map(mapDbProduct);
+        setLiveProducts(live.length > 0 ? live : fallbackProducts);
+      })
+      .catch(() => setLiveProducts(fallbackProducts));
   }, []);
 
   const updateSearch = (params: Record<string, string | string[] | undefined>) => {
