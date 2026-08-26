@@ -14,9 +14,9 @@ import {
   Divider,
   Drawer,
   DrawerBody,
-  DrawerFooter,
   DrawerHeader,
   Indicator,
+  RayIcon,
   ShoppingCartIcon,
   Text
 } from "@razorpay/blade/components";
@@ -24,13 +24,24 @@ import {
 import { BladeRoot } from "./BladeRoot";
 import { type Product } from "@/lib/store/catalog";
 
+type MatchedProduct = {
+  id?: string;
+  sku?: string;
+  name: string;
+  description?: string;
+  price: number;
+  stock?: number;
+};
+
 type ChatMessageItem = {
   id: string;
   sender: 'user' | 'assistant';
   text: string;
   timestamp: string;
-  matched_products?: any[];
+  matched_products?: MatchedProduct[];
   model_used?: string;
+  isError?: boolean;
+  suggestions?: string[];
 };
 
 type Props = {
@@ -38,6 +49,18 @@ type Props = {
   onDismiss: () => void;
   product?: Product | undefined;
 };
+
+const THINKING_STEPS = [
+  'Reading your message...',
+  'Searching the live product catalog...',
+  'Ranking the best matches...',
+];
+
+const SUGGESTED_QUESTIONS = [
+  'Headphones under ₹5,000',
+  'Compare Asus TUF vs Acer Nitro',
+  'Wireless Mouse',
+];
 
 function getCurrentTimeString() {
   const now = new Date();
@@ -48,8 +71,8 @@ function GenUIProductCard({
   item,
   onAddToCart,
 }: {
-  item: any;
-  onAddToCart: (item: any) => void;
+  item: MatchedProduct;
+  onAddToCart: (item: MatchedProduct) => void;
 }) {
   return (
     <Card elevation="none" backgroundColor="surface.background.gray.intense">
@@ -57,13 +80,15 @@ function GenUIProductCard({
         <Box display="flex" flexDirection="column" gap="spacing.3">
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Badge color="positive" size="small">AI Catalog Match</Badge>
-            <Text size="xsmall" color="surface.text.gray.muted">In Stock ({item.stock || 10})</Text>
+            <Text size="xsmall" color="surface.text.gray.muted">In Stock ({item.stock ?? 0})</Text>
           </Box>
 
           <Text size="medium" weight="semibold">{item.name}</Text>
-          <Text size="xsmall" color="surface.text.gray.subtle" truncateAfterLines={2}>
-            {item.description || 'High performance item ready for instant Razorpay checkout.'}
-          </Text>
+          {item.description && (
+            <Text size="xsmall" color="surface.text.gray.subtle" truncateAfterLines={2}>
+              {item.description}
+            </Text>
+          )}
 
           <Box display="flex" justifyContent="space-between" alignItems="center" marginTop="spacing.2">
             <Amount value={item.price} currency="INR" size="medium" />
@@ -83,11 +108,36 @@ function GenUIProductCard({
   );
 }
 
+function SuggestedQuestionChips({
+  questions,
+  onSelect,
+}: {
+  questions: string[];
+  onSelect: (question: string) => void;
+}) {
+  return (
+    <Box display="flex" flexDirection="column" gap="spacing.2" marginTop="spacing.3">
+      {questions.map((question) => (
+        <Button
+          key={question}
+          variant="tertiary"
+          size="small"
+          isFullWidth
+          onClick={() => onSelect(question)}
+        >
+          {question}
+        </Button>
+      ))}
+    </Box>
+  );
+}
+
 const INITIAL_WELCOME_MESSAGE: ChatMessageItem = {
   id: 'welcome_msg',
   sender: 'assistant',
-  text: "Hello! 👋 I'm your ElectroStore AI Assistant. Ask me about products, compare specs, or request instant Razorpay checkout links!",
-  timestamp: getCurrentTimeString()
+  text: "Hello! I'm your ElectroStore AI Assistant. Ask me about products, compare specs, or request instant Razorpay checkout links.",
+  timestamp: getCurrentTimeString(),
+  suggestions: SUGGESTED_QUESTIONS,
 };
 
 export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
@@ -104,6 +154,7 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
     if (product) {
       handleSendMessage(`Tell me about ${product.name}`);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product]);
 
   useEffect(() => {
@@ -119,8 +170,9 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
     isSendingRef.current = true;
     setIsTyping(true);
 
+    const userMsgId = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const userMsg: ChatMessageItem = {
-      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: userMsgId,
       sender: 'user',
       text: textToSend,
       timestamp: getCurrentTimeString(),
@@ -142,6 +194,11 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
       });
 
       const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'The AI assistant is temporarily unavailable.');
+      }
+
       if (data.session_id) setSessionId(data.session_id);
 
       const aiMsg: ChatMessageItem = {
@@ -156,20 +213,23 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
       setMessages((prev) => [...prev, aiMsg]);
     } catch (err) {
       console.error('AI Chat Error:', err);
-      const fallbackMsg: ChatMessageItem = {
-        id: `ai_err_${Date.now()}`,
-        sender: 'assistant',
-        text: 'Connected to Razorpay Merchant AI Gateway. How can I assist you with products today?',
-        timestamp: getCurrentTimeString(),
-      };
-      setMessages((prev) => [...prev, fallbackMsg]);
+      // Mark the user's own message as failed (Blade's error affordance is on senderType="self")
+      // instead of fabricating an assistant reply, and let them retry the exact same message.
+      setMessages((prev) =>
+        prev.map((m) => (m.id === userMsgId ? { ...m, isError: true } : m))
+      );
     } finally {
       setIsTyping(false);
       isSendingRef.current = false;
     }
   };
 
-  const handleAddToCartAndCheckout = (item: any) => {
+  const handleRetry = (messageId: string, text: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    handleSendMessage(text);
+  };
+
+  const handleAddToCartAndCheckout = (item: MatchedProduct) => {
     onDismiss();
     router.push(`/store/checkout?sku=${encodeURIComponent(item.sku || item.name)}`);
   };
@@ -183,7 +243,7 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
         />
         <DrawerBody>
           <Box display="flex" flexDirection="column" height="100%" justifyContent="space-between">
-            
+
             {/* Header Status Bar */}
             <Box paddingBottom="spacing.3">
               <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -210,6 +270,18 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
                 <Box key={msg.id} display="flex" flexDirection="column" gap="spacing.2">
                   <BladeChatMessage
                     senderType={msg.sender === 'user' ? 'self' : 'other'}
+                    leading={msg.sender === 'assistant' ? <RayIcon size="large" color="surface.icon.onSea.onSubtle" /> : undefined}
+                    validationState={msg.isError ? 'error' : 'none'}
+                    errorText={msg.isError ? 'Message not sent. Tap to retry.' : undefined}
+                    onClick={msg.isError ? () => handleRetry(msg.id, msg.text) : undefined}
+                    footerActions={
+                      msg.suggestions && msg.suggestions.length > 0 ? (
+                        <SuggestedQuestionChips
+                          questions={msg.suggestions}
+                          onSelect={(q) => handleSendMessage(q)}
+                        />
+                      ) : undefined
+                    }
                   >
                     <Text size="small">{msg.text}</Text>
                   </BladeChatMessage>
@@ -217,9 +289,9 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
                   {/* Render Blade GenUI Cards if AI returned matched catalog products */}
                   {msg.sender === 'assistant' && msg.matched_products && msg.matched_products.length > 0 && (
                     <Box display="flex" flexDirection="column" gap="spacing.3" marginTop="spacing.2" paddingLeft="spacing.3">
-                      {msg.matched_products.map((prod: any) => (
+                      {msg.matched_products.map((prod) => (
                         <GenUIProductCard
-                          key={prod.id || prod.sku}
+                          key={prod.id || prod.sku || prod.name}
                           item={prod}
                           onAddToCart={handleAddToCartAndCheckout}
                         />
@@ -238,34 +310,20 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
               ))}
 
               {isTyping && (
-                <Box display="flex" alignItems="center" gap="spacing.2" paddingLeft="spacing.2">
-                  <Indicator color="notice" size="small" />
-                  <Text size="xsmall" color="surface.text.gray.muted">AI is thinking...</Text>
-                </Box>
+                <BladeChatMessage
+                  senderType="other"
+                  isLoading
+                  loadingText={THINKING_STEPS}
+                  leading={<RayIcon size="large" color="surface.icon.onSea.onSubtle" />}
+                  reasoningTraces={THINKING_STEPS.map((label) => ({ label }))}
+                  reasoningStatus="loading"
+                  reasoningTitle="Working on it"
+                />
               )}
             </Box>
 
-            {/* Bottom Controls Area */}
+            {/* Bottom Composer */}
             <Box borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3" marginTop="spacing.3">
-              {/* Quick Sample Action Prompt Buttons */}
-              <Box display="flex" gap="spacing.2" overflowX="auto" paddingBottom="spacing.3">
-                {[
-                  'Headphones under ₹5,000',
-                  'Compare Asus TUF vs Acer Nitro',
-                  'Wireless Mouse'
-                ].map((promptText) => (
-                  <Button
-                    key={promptText}
-                    variant="secondary"
-                    size="xsmall"
-                    onClick={() => handleSendMessage(promptText)}
-                  >
-                    {promptText}
-                  </Button>
-                ))}
-              </Box>
-
-              {/* Blade ChatInput Component */}
               <ChatInput
                 placeholder="Ask about products, specs, or instant checkout..."
                 value={inputValue}
@@ -280,9 +338,6 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
 
           </Box>
         </DrawerBody>
-        <DrawerFooter>
-          <Button variant="secondary" onClick={onDismiss} isFullWidth>Close Assistant</Button>
-        </DrawerFooter>
       </Drawer>
     </BladeRoot>
   );
