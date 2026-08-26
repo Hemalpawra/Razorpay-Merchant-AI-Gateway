@@ -273,6 +273,17 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
   };
 
   const handleAddToCartAndCheckout = (item: MatchedProduct) => {
+    fetch("/api/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_type: "product_selected",
+        session_id: sessionId,
+        title: "Product Selected",
+        description: `${item.name} added to cart from AI recommendation`,
+        meta_json: { sku: item.sku, price: item.price },
+      }),
+    }).catch(() => {});
     if (item.sku) {
       addToCart(
         {

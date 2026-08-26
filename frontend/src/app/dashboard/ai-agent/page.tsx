@@ -21,7 +21,7 @@ import {
 } from '@razorpay/blade/components';
 
 type Message = { id: string; role: string; content: string; created_at?: string };
-type MatchedProduct = { product?: { id: string; name: string; price: number; stock_qty?: number; image_url?: string | null; sku?: string } };
+type MatchedProduct = { product?: { id: string; name: string; price: number; stock_qty?: number; image_url?: string | null; sku?: string; slug?: string | null } };
 type AuditEvent = {
   id: string;
   event_type: string;
@@ -163,6 +163,11 @@ function ConversationDrawer({
                   </Text>
                 </Box>
                 <Amount value={Number(product!.price)} currency="INR" size="small" />
+                {product!.slug && (
+                  <Button variant="secondary" size="small" href={`/store/products/${product!.slug}`}>
+                    Open
+                  </Button>
+                )}
               </Box>
             ))
           )}
@@ -180,7 +185,7 @@ function ConversationDrawer({
               </Box>
               <Box display="flex" alignItems="center" gap="spacing.3">
                 <Amount value={Number(relatedOrder.amount)} currency={(relatedOrder.currency || 'INR') as 'INR'} size="small" />
-                <Button variant="secondary" size="small" iconPosition="right" icon={ArrowRightIcon} href={`/dashboard/orders`}>Open</Button>
+                <Button variant="secondary" size="small" iconPosition="right" icon={ArrowRightIcon} href={`/dashboard/orders?order=${relatedOrder.id}`}>Open</Button>
               </Box>
             </Box>
           )}

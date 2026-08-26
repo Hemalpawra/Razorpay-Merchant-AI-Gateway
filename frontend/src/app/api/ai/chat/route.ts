@@ -13,6 +13,7 @@ export async function POST(request: Request) {
       history?: Array<{ sender: string; text: string }>;
       session_id?: string | null;
       mode?: string;
+      agent_name?: string | null;
     };
     const messages = body.messages?.slice(-MAX_HISTORY) ?? (body.message ? [{ id: crypto.randomUUID(), role: 'user', parts: [{ type: 'text', text: body.message }] }] : []);
     if (!messages.length) return Response.json({ error: 'A message is required.' }, { status: 400 });
@@ -38,6 +39,8 @@ export async function POST(request: Request) {
     // --- Persist session, messages, matches and audit trail ---
     let sessionId = body.session_id ?? null;
     const isNewSession = !sessionId;
+    const isAgentMode = body.mode === 'agent_to_agent';
+    const agentName = (body.agent_name || '').trim() || (isAgentMode ? 'External Buyer AI' : 'Customer');
     const merchantId = (await supabase.from('merchants').select('id').limit(1).maybeSingle()).data?.id;
 
     if (merchantId && !sessionId) {
@@ -45,8 +48,8 @@ export async function POST(request: Request) {
         .from('buyer_sessions')
         .insert({
           merchant_id: merchantId,
-          external_ai_name: 'Customer',
-          channel: 'storefront',
+          external_ai_name: isAgentMode ? agentName : 'Customer',
+          channel: isAgentMode ? 'agent_to_agent' : 'storefront',
           customer_query: cleanMessage,
           buyer_request_text: cleanMessage,
           status: 'active',
@@ -108,6 +111,30 @@ export async function POST(request: Request) {
           result: 'success',
           meta_json: { matched_count: matchedProducts.length },
         });
+        if (matchedProducts.length > 1) {
+          await MerchantAuditService.logEvent({
+            supabase,
+            merchant_id: merchantId,
+            session_id: sessionId,
+            actor_type: 'ai_assistant',
+            event_type: 'products_compared',
+            title: 'Products Compared',
+            description: `Compared ${matchedProducts.length} options: ${matchedProducts.map((p: any) => p.name).join(', ').slice(0, 200)}`,
+            result: 'success',
+            meta_json: { product_names: matchedProducts.map((p: any) => p.name) },
+          });
+          await MerchantAuditService.logEvent({
+            supabase,
+            merchant_id: merchantId,
+            session_id: sessionId,
+            actor_type: 'ai_assistant',
+            event_type: 'upsell_shown',
+            title: 'Upsell / Cross-sell Shown',
+            description: `Recommended ${matchedProducts.length - 1} complementary option(s) alongside top match`,
+            result: 'success',
+            meta_json: { matched_count: matchedProducts.length },
+          });
+        }
       }
       await supabase.from('ai_conversation_messages').insert([
         { session_id: sessionId, role: 'user', content: cleanMessage },

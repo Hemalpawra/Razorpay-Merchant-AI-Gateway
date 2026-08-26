@@ -193,6 +193,22 @@ export default function CheckoutBlade() {
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on("payment.failed", function (response: any) {
+        fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event_type: "payment_failed",
+            session_id: sessionId,
+            title: "Payment Failed",
+            description:
+              response?.error?.description ||
+              "Razorpay payment failed at checkout. Customer can safely retry with another payment method.",
+            meta_json: {
+              razorpay_order_id: response?.error?.metadata?.order_id || data.razorpay_order_id,
+              reason: response?.error?.reason || "unknown",
+            },
+          }),
+        }).catch(() => {});
         setErrorMessage(response?.error?.description || "Payment failed. Please try again with a different payment method.");
         setIsSubmitting(false);
       });

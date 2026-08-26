@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Box,
   Heading,
@@ -16,6 +17,7 @@ import {
   AlertCircleIcon,
   AlertTriangleIcon,
   InfoIcon,
+  Alert,
   SparklesIcon,
   RefreshIcon,
   FileTextIcon,
@@ -31,11 +33,14 @@ interface AuditLogItem {
   eventType: string;
   sessionId: string | null;
   orderId: string | null;
+  rawSessionId?: string | null;
+  rawOrderId?: string | null;
   actor: string;
   actorType: string;
   result: EventResult;
   title: string;
   description: string;
+  reason?: string | null;
   rawLog?: any;
 }
 
@@ -46,7 +51,17 @@ const resultConfig: Record<EventResult, { color: 'positive' | 'negative' | 'noti
   Info: { color: 'information', label: 'Info' },
 };
 
-function EventDetailDrawer({ event, onClose }: { event: AuditLogItem; onClose: () => void }) {
+function EventDetailDrawer({
+  event,
+  chainFilter,
+  onOpenFullChain,
+  onClose,
+}: {
+  event: AuditLogItem;
+  chainFilter: string | null;
+  onOpenFullChain: (sessionId: string) => void;
+  onClose: () => void;
+}) {
   return (
     <Box
       position="fixed"
@@ -76,6 +91,9 @@ function EventDetailDrawer({ event, onClose }: { event: AuditLogItem; onClose: (
               <Badge color={resultConfig[event.result].color} size="small">{event.result}</Badge>
             </Box>
             <Text size="small" color="surface.text.gray.muted">{event.description}</Text>
+            {event.reason && (
+              <Alert color="negative" title="Reason" description={event.reason} />
+            )}
             <Text size="xsmall" color="surface.text.gray.subtle">{event.time}</Text>
           </Box>
         </CardBody>
@@ -100,7 +118,22 @@ function EventDetailDrawer({ event, onClose }: { event: AuditLogItem; onClose: (
         </Box>
       </Box>
 
-      <Box marginTop="auto">
+      <Box marginTop="auto" display="flex" flexDirection="column" gap="spacing.3">
+        {event.rawSessionId && (
+          <Button variant="secondary" isFullWidth href={`/dashboard/ai-agent?session=${event.rawSessionId}`}>
+            View Related Conversation
+          </Button>
+        )}
+        {event.rawOrderId && (
+          <Button variant="secondary" isFullWidth href={`/dashboard/orders?order=${event.rawOrderId}`}>
+            View Related Order
+          </Button>
+        )}
+        {event.rawSessionId && event.rawSessionId !== chainFilter && (
+          <Button variant="primary" isFullWidth onClick={() => onOpenFullChain(event.rawSessionId!)}>
+            Open Full Chain ({event.sessionId})
+          </Button>
+        )}
         <Button variant="tertiary" onClick={onClose} isFullWidth>Close</Button>
       </Box>
     </Box>
@@ -108,9 +141,25 @@ function EventDetailDrawer({ event, onClose }: { event: AuditLogItem; onClose: (
 }
 
 export default function AuditTrailPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
+          <Text size="small" color="surface.text.gray.muted">Loading audit trail...</Text>
+        </Box>
+      }
+    >
+      <AuditTrailPageInner />
+    </Suspense>
+  );
+}
+
+function AuditTrailPageInner() {
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<AuditLogItem | null>(null);
+  const [chainFilter, setChainFilter] = useState<string | null>(null);
+  const searchParams = useSearchParams();
 
   const fetchAuditLogs = async () => {
     setIsLoading(true);
@@ -124,11 +173,21 @@ export default function AuditTrailPage() {
           eventType: log.event_type,
           sessionId: log.session_id ? log.session_id.substring(0, 8).toUpperCase() : null,
           orderId: log.order_id ? log.order_id.substring(0, 8).toUpperCase() : null,
+          rawSessionId: log.session_id,
+          rawOrderId: log.order_id,
           actor: log.actor_type,
           actorType: log.actor_type,
-          result: log.result === 'success' ? 'Success' : log.result === 'error' ? 'Failed' : 'Info',
+          result:
+            log.result === 'success'
+              ? 'Success'
+              : log.result === 'failure' || log.result === 'error'
+                ? 'Failed'
+                : log.result === 'warning'
+                  ? 'Warning'
+                  : 'Info',
           title: log.title,
           description: log.description || log.title,
+          reason: log.meta_json?.reason || (log.result === 'failure' ? log.description : null),
           rawLog: log
         }));
         setLogs(mapped);
@@ -142,7 +201,13 @@ export default function AuditTrailPage() {
 
   useEffect(() => {
     fetchAuditLogs();
+    const sessionParam = searchParams.get('session');
+    if (sessionParam) setChainFilter(sessionParam);
   }, []);
+
+  const visibleLogs = chainFilter
+    ? logs.filter((log) => log.rawSessionId === chainFilter)
+    : logs;
 
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
@@ -161,32 +226,45 @@ export default function AuditTrailPage() {
       </Box>
 
       {/* Summary Cards */}
-      <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2, 1fr)', l: 'repeat(4, 1fr)' }} gap="spacing.4" marginBottom="spacing.6">
+      <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2, 1fr)', l: 'repeat(5, 1fr)' }} gap="spacing.4" marginBottom="spacing.6">
         <Card elevation="none" backgroundColor="surface.background.gray.intense">
           <CardBody>
-            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Total Logged Events</Text>
-            <Heading size="xlarge">{logs.length}</Heading>
+            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Total Events</Text>
+            <Heading size="xlarge">{visibleLogs.length}</Heading>
           </CardBody>
         </Card>
         <Card elevation="none" backgroundColor="surface.background.gray.intense">
           <CardBody>
-            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Success Events</Text>
-            <Heading size="xlarge">{logs.filter(l => l.result === 'Success').length}</Heading>
+            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Success</Text>
+            <Heading size="xlarge">{visibleLogs.filter(l => l.result === 'Success').length}</Heading>
           </CardBody>
         </Card>
         <Card elevation="none" backgroundColor="surface.background.gray.intense">
           <CardBody>
-            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Gateway Sessions</Text>
-            <Heading size="xlarge">{logs.filter(l => l.sessionId).length}</Heading>
+            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Failed</Text>
+            <Heading size="xlarge">{visibleLogs.filter(l => l.result === 'Failed').length}</Heading>
           </CardBody>
         </Card>
         <Card elevation="none" backgroundColor="surface.background.gray.intense">
           <CardBody>
-            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Orders Processed</Text>
-            <Heading size="xlarge">{logs.filter(l => l.orderId).length}</Heading>
+            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Sessions with Events</Text>
+            <Heading size="xlarge">{new Set(visibleLogs.filter(l => l.rawSessionId).map(l => l.rawSessionId)).size}</Heading>
+          </CardBody>
+        </Card>
+        <Card elevation="none" backgroundColor="surface.background.gray.intense">
+          <CardBody>
+            <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Orders with Events</Text>
+            <Heading size="xlarge">{new Set(visibleLogs.filter(l => l.rawOrderId).map(l => l.rawOrderId)).size}</Heading>
           </CardBody>
         </Card>
       </Box>
+
+      {chainFilter && (
+        <Box display="flex" alignItems="center" justifyContent="space-between" padding="spacing.3" marginBottom="spacing.4" backgroundColor="surface.background.gray.intense" borderRadius="medium">
+          <Text size="small">Showing full event chain for session {chainFilter.substring(0, 8).toUpperCase()}</Text>
+          <Button variant="secondary" size="small" onClick={() => setChainFilter(null)}>Show All Events</Button>
+        </Box>
+      )}
 
       {/* Audit Logs Table */}
       <Card elevation="none" backgroundColor="surface.background.gray.intense">
@@ -212,16 +290,16 @@ export default function AuditTrailPage() {
 
           {isLoading ? (
             <Box padding="spacing.4"><Text size="small" color="surface.text.gray.muted">Loading audit logs from DB...</Text></Box>
-          ) : logs.length === 0 ? (
+          ) : visibleLogs.length === 0 ? (
             <Box padding="spacing.4"><Text size="small" color="surface.text.gray.muted">No audit events logged yet.</Text></Box>
           ) : (
             <Box display="flex" flexDirection="column">
-              {logs.map((log, index) => (
+              {visibleLogs.map((log, index) => (
                 <Box 
                   key={log.id}
                   paddingY="spacing.4"
                   paddingX="spacing.4"
-                  borderBottomWidth={index !== logs.length - 1 ? 'thin' : 'none'}
+                  borderBottomWidth={index !== visibleLogs.length - 1 ? 'thin' : 'none'}
                   borderBottomColor="surface.border.gray.muted"
                   display="grid"
                   gridTemplateColumns="1.5fr 2fr 1.2fr 1.2fr 1fr 1fr auto"
@@ -254,7 +332,15 @@ export default function AuditTrailPage() {
       </Card>
 
       {selectedEvent && (
-        <EventDetailDrawer event={selectedEvent} onClose={() => setSelectedEvent(null)} />
+        <EventDetailDrawer
+          event={selectedEvent}
+          chainFilter={chainFilter}
+          onOpenFullChain={(sessionId) => {
+            setChainFilter(sessionId);
+            setSelectedEvent(null);
+          }}
+          onClose={() => setSelectedEvent(null)}
+        />
       )}
     </Box>
   );

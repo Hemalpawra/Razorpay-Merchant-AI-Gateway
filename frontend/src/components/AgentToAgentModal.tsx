@@ -36,6 +36,7 @@ export function AgentToAgentModal({ isOpen, onDismiss, onSelectProductForCheckou
   const [isRunning, setIsRunning] = useState(false);
   const [step, setStep] = useState<number>(0);
   const [response, setResponse] = useState<any>(null);
+  const [a2aSessionId, setA2aSessionId] = useState<string | null>(null);
 
   const handleSimulateA2A = async () => {
     setIsRunning(true);
@@ -55,11 +56,14 @@ export function AgentToAgentModal({ isOpen, onDismiss, onSelectProductForCheckou
         body: JSON.stringify({
           message: prompt,
           mode: 'agent_to_agent',
+          agent_name: agentName,
+          session_id: a2aSessionId,
           merchant_id: 'm_demo_101'
         })
       });
 
       const data = await res.json();
+      if (data.session_id) setA2aSessionId(data.session_id);
       setResponse(data);
       setStep(4); // 4: GenUI Match Completed
     } catch (err) {

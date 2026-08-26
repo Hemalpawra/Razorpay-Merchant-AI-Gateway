@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Box,
   Heading,
@@ -277,6 +278,20 @@ function OrderDetailDrawer({
 }
 
 export default function OrdersPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
+          <Text size="small" color="surface.text.gray.muted">Loading orders...</Text>
+        </Box>
+      }
+    >
+      <OrdersPageInner />
+    </Suspense>
+  );
+}
+
+function OrdersPageInner() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
@@ -354,6 +369,16 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
 
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const target = searchParams.get('order');
+    if (!target || orders.length === 0) return;
+    const match = orders.find(
+      (o) => o.rawOrder?.id === target || o.razorpayOrderId === target,
+    );
+    if (match) setSelectedOrder(match);
+  }, [searchParams, orders]);
+
   const totalRevenue = orders
     .filter((o) => o.paymentStatus === "Paid")
     .reduce(
@@ -399,7 +424,7 @@ export default function OrdersPage() {
         gridTemplateColumns={{
           base: "1fr",
           m: "repeat(2,1fr)",
-          l: "repeat(4,1fr)",
+          l: "repeat(5,1fr)",
         }}
         gap="spacing.4"
         marginBottom="spacing.6"
@@ -463,6 +488,23 @@ export default function OrdersPage() {
               weight="semibold"
               color="surface.text.gray.muted"
             >
+              Failed Orders
+            </Text>
+            <Heading size="xlarge">
+              {orders.filter((o) => o.paymentStatus === "Failed" || o.orderStatus === "Failed").length}
+            </Heading>
+          </CardBody>
+        </Card>
+        <Card
+          elevation="none"
+          backgroundColor="surface.background.gray.intense"
+        >
+          <CardBody>
+            <Text
+              size="xsmall"
+              weight="semibold"
+              color="surface.text.gray.muted"
+            >
               Total Revenue
             </Text>
             <Heading size="xlarge">{`₹${totalRevenue.toLocaleString("en-IN")}`}</Heading>
@@ -475,7 +517,7 @@ export default function OrdersPage() {
         <CardBody>
           <Box
             display="grid"
-            gridTemplateColumns="0.8fr 1.1fr 0.9fr 1.6fr 0.9fr 0.9fr 1fr auto"
+            gridTemplateColumns="0.8fr 1fr 0.8fr 1.4fr 0.8fr 0.8fr 0.9fr 1fr auto"
             gap="spacing.4"
             paddingY="spacing.3"
             paddingX="spacing.4"
@@ -523,7 +565,14 @@ export default function OrdersPage() {
               weight="semibold"
               color="surface.text.gray.muted"
             >
-              STATUS
+              PAYMENT
+            </Text>
+            <Text
+              size="xsmall"
+              weight="semibold"
+              color="surface.text.gray.muted"
+            >
+              ORDER STATUS
             </Text>
             <Text
               size="xsmall"
@@ -566,7 +615,7 @@ export default function OrdersPage() {
                   }
                   borderBottomColor="surface.border.gray.muted"
                   display="grid"
-                  gridTemplateColumns="0.8fr 1.1fr 0.9fr 1.6fr 0.9fr 0.9fr 1fr auto"
+                  gridTemplateColumns="0.8fr 1fr 0.8fr 1.4fr 0.8fr 0.8fr 0.9fr 1fr auto"
                   gap="spacing.4"
                   alignItems="center"
                 >
@@ -600,6 +649,22 @@ export default function OrdersPage() {
                       size="small"
                     >
                       {paymentStatusConfig[order.paymentStatus].label}
+                    </Badge>
+                  </Box>
+                  <Box>
+                    <Badge
+                      color={
+                        order.orderStatus === "Completed"
+                          ? "positive"
+                          : order.orderStatus === "Failed"
+                            ? "negative"
+                            : order.orderStatus === "Cancelled"
+                              ? "neutral"
+                              : "notice"
+                      }
+                      size="small"
+                    >
+                      {order.orderStatus}
                     </Badge>
                   </Box>
                   <Text size="xsmall" color="surface.text.gray.muted">
