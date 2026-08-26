@@ -80,9 +80,9 @@ export class OrderCheckoutEngine {
       throw new Error(`Could not verify cart items: ${productsErr.message}`);
     }
 
-    const productBySku = new Map(
-      (dbProducts ?? []).map((p: { sku: string; price: number; status: string; stock_qty: number }) => [p.sku, p])
-    );
+    type DbProductRow = { sku: string; price: number; status: string; stock_qty: number };
+    const productRows = (dbProducts ?? []) as unknown as DbProductRow[];
+    const productBySku = new Map<string, DbProductRow>(productRows.map((p) => [p.sku, p]));
     let subtotal = 0;
     for (const [sku, qty] of requestedQtyBySku.entries()) {
       const product = productBySku.get(sku);
