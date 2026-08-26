@@ -36,6 +36,7 @@ type ChatMsg = {
   time: string;
   products?: ProductOption[];
   orderCreated?: { orderId: string; amount: string; product: string };
+  model?: string;
 };
 
 export function AIChatWidget() {
@@ -82,6 +83,7 @@ export function AIChatWidget() {
         sender: 'ai',
         text: result.reply,
         time: 'Just now',
+        model: result.model_used || 'openai/gpt-5-mini-fast',
         products: (result.matched_products || []).map((product: any) => ({
           name: product.name,
           price: `₹${Number(product.price).toLocaleString('en-IN')}`,
@@ -154,7 +156,7 @@ export function AIChatWidget() {
               </Box>
               <Box display="flex" flexDirection="column">
                 <Text size="small" weight="semibold">Merchant AI Store Assistant</Text>
-                <Text size="xsmall" color="interactive.text.positive.normal">● Online • Powered by Razorpay</Text>
+                <Text size="xsmall" color="interactive.text.positive.normal">Online • Vercel AI Gateway</Text>
               </Box>
             </Box>
             <IconButton icon={CloseIcon} accessibilityLabel="Close chat" size="small" onClick={() => setIsOpen(false)} />

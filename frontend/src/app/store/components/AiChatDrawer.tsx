@@ -150,7 +150,7 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
         text: data.reply || 'I found matching products in our catalog.',
         timestamp: getCurrentTimeString(),
         matched_products: data.matched_products || [],
-        model_used: data.model_used || 'openrouter/free'
+        model_used: data.model_used || 'openai/gpt-5-mini-fast'
       };
 
       setMessages((prev) => [...prev, aiMsg]);
@@ -179,7 +179,7 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
       <Drawer isOpen={isOpen} onDismiss={onDismiss}>
         <DrawerHeader
           title="Merchant AI Shopping Assistant"
-          subtitle="Powered by OpenRouter Free Models &amp; Razorpay AI Gateway"
+          subtitle="Powered by Vercel AI Gateway &amp; Razorpay Blade"
         />
         <DrawerBody>
           <Box display="flex" flexDirection="column" height="100%" justifyContent="space-between">
