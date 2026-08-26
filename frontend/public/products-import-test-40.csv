@@ -1,0 +1,41 @@
+sku,name,description,category,price,currency,stock_qty,image_url
+ELEC-001,Wireless Mouse,Ergonomic 2.4GHz wireless mouse with adjustable DPI and silent clicks,Computer Accessories,1299,INR,48,https://images.unsplash.com/photo-1527814050087-3793815479db
+ELEC-002,Mechanical Keyboard,Compact RGB mechanical keyboard with hot-swappable switches,Computer Accessories,4999,INR,32,https://images.unsplash.com/photo-1587829741301-dc798b83add3
+ELEC-003,USB-C Hub,7-in-1 USB-C hub with HDMI SD card and power delivery,Computer Accessories,2499,INR,25,https://images.unsplash.com/photo-1625842268584-8f3296236761
+ELEC-004,Noise Cancelling Headphones,Over-ear Bluetooth headphones with active noise cancellation,Audio,8999,INR,18,https://images.unsplash.com/photo-1505740420928-5e560c06d30e
+ELEC-005,Portable Bluetooth Speaker,Water-resistant portable speaker with 12-hour battery life,Audio,3299,INR,41,https://images.unsplash.com/photo-1608043152269-423dbba4e7e1
+ELEC-006,1080p Webcam,Full HD webcam with privacy shutter and dual microphones,Computer Accessories,2799,INR,22,https://images.unsplash.com/photo-1587826080692-f439cd0b70da
+ELEC-007,27 Inch Monitor,27-inch QHD IPS monitor with 100Hz refresh rate,Monitors,18999,INR,14,https://images.unsplash.com/photo-1527443224154-c4a3942d3acf
+ELEC-008,Laptop Stand,Aluminum adjustable laptop stand with cable management,Computer Accessories,1899,INR,56,https://images.unsplash.com/photo-1524758631624-e2822e304c36
+ELEC-009,Wireless Charger,15W fast wireless charging pad with USB-C input,Mobile Accessories,1499,INR,63,https://images.unsplash.com/photo-1586953208448-b95a79798f07
+ELEC-010,Power Bank,20000mAh power bank with 22.5W fast charging,Mobile Accessories,2299,INR,37,https://images.unsplash.com/photo-1609592424964-8a8d1f2c6f2e
+ELEC-011,Smart Watch,Health and fitness smartwatch with AMOLED display,Wearables,6999,INR,29,https://images.unsplash.com/photo-1523275335684-37898b6baf30
+ELEC-012,USB Microphone,Condenser USB microphone with desktop stand and pop filter,Audio,5499,INR,17,https://images.unsplash.com/photo-1590602847861-f357a9332bbc
+ELEC-013,Wi-Fi Router,AX3000 dual-band Wi-Fi 6 router with four antennas,Networking,6499,INR,21,https://images.unsplash.com/photo-1544197150-b99a580bb7a8
+ELEC-014,External SSD,Portable 1TB USB 3.2 solid state drive,Storage,7999,INR,26,https://images.unsplash.com/photo-1597872200969-2b65d56bd16b
+ELEC-015,HDMI Cable,Premium 2-meter HDMI 2.1 cable supporting 8K video,Computer Accessories,899,INR,95,https://images.unsplash.com/photo-1625842268584-8f3296236761
+HOME-016,Desk Lamp,LED desk lamp with touch controls and adjustable color temperature,Home Office,1599,INR,44,https://images.unsplash.com/photo-1507473885765-e6ed057f782c
+HOME-017,Ergonomic Office Chair,Mesh office chair with lumbar support and adjustable armrests,Furniture,12999,INR,11,https://images.unsplash.com/photo-1580480055273-228ff5388ef8
+HOME-018,Standing Desk,Electric height-adjustable standing desk with memory presets,Furniture,24999,INR,8,https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd
+HOME-019,Desk Organizer,Bamboo desk organizer with compartments for stationery,Home Office,799,INR,72,https://images.unsplash.com/photo-1499750310107-5fef28a66643
+HOME-020,Whiteboard,Magnetic dry erase whiteboard with marker tray,Home Office,2199,INR,19,https://images.unsplash.com/photo-1507842217343-583bb7270b66
+HOME-021,Ceramic Coffee Mug,Matte ceramic coffee mug with 350ml capacity,Kitchen,499,INR,86,https://images.unsplash.com/photo-1514228742587-6b1558fcca3d
+HOME-022,Insulated Water Bottle,Stainless steel insulated bottle that keeps drinks cold for 24 hours,Kitchen,1299,INR,64,https://images.unsplash.com/photo-1602143407151-7111542de6e8
+HOME-023,Air Purifier,HEPA air purifier for rooms up to 300 square feet,Home Appliances,8999,INR,15,https://images.unsplash.com/photo-1585771724684-38269d6639fd
+HOME-024,Smart LED Bulb,Wi-Fi enabled dimmable smart LED bulb with voice control,Home Appliances,699,INR,78,https://images.unsplash.com/photo-1550985543-f47d9e6c4e7c
+HOME-025,Power Strip,6-socket surge-protected power strip with USB ports,Home Office,1199,INR,53,https://images.unsplash.com/photo-1558008258-3256797b43f3
+LIFE-026,Running Shoes,Lightweight breathable running shoes with cushioned sole,Footwear,3499,INR,34,https://images.unsplash.com/photo-1542291026-7eec264c27ff
+LIFE-027,Travel Backpack,Water-resistant 25-liter backpack with padded laptop sleeve,Bags,2999,INR,28,https://images.unsplash.com/photo-1553062407-98eeb64c6a62
+LIFE-028,Yoga Mat,Non-slip 6mm exercise mat with carry strap,Fitness,999,INR,61,https://images.unsplash.com/photo-1592432678016-e910b452f9a2
+LIFE-029,Resistance Bands,Set of five resistance bands with handles and door anchor,Fitness,1299,INR,47,https://images.unsplash.com/photo-1598289431512-b97b0917affc
+LIFE-030,Stainless Steel Lunch Box,Three-compartment leakproof lunch box with cutlery,Kitchen,899,INR,70,https://images.unsplash.com/photo-1547592180-85f173990554
+LIFE-031,Sunglasses,Polarized UV400 sunglasses with lightweight frame,Accessories,1799,INR,39,https://images.unsplash.com/photo-1511499767150-a48a237f0083
+LIFE-032,Leather Wallet,Compact genuine leather wallet with RFID blocking,Accessories,1499,INR,45,https://images.unsplash.com/photo-1627123424574-724758594e93
+LIFE-033,Travel Adapter,Universal travel adapter with USB-C fast charging,Travel,1899,INR,31,https://images.unsplash.com/photo-1553531384-cc64ac80f931
+LIFE-034,Digital Luggage Scale,Portable luggage scale with backlit LCD display,Travel,799,INR,58,https://images.unsplash.com/photo-1553531384-cc64ac80f931
+LIFE-035,Stainless Steel Tumbler,Insulated 500ml tumbler with splash-proof lid,Kitchen,1099,INR,66,https://images.unsplash.com/photo-1544145945-f90425340c7e
+BOOK-036,Productivity Planner,Undated 12-week productivity planner with weekly goal pages,Books and Stationery,699,INR,50,https://images.unsplash.com/photo-1506784983877-45594efa4cbe
+BOOK-037,Hardcover Notebook,Premium ruled hardcover notebook with 192 pages,Books and Stationery,599,INR,83,https://images.unsplash.com/photo-1517842645767-c639042777db
+BOOK-038,Fountain Pen,Metal-bodied fountain pen with fine nib and blue ink cartridge,Books and Stationery,1299,INR,27,https://images.unsplash.com/photo-1583485088034-697b5bc54ccd
+BOOK-039,Desk Calendar,Minimalist desktop calendar with monthly planning pages,Books and Stationery,449,INR,91,https://images.unsplash.com/photo-1506784983877-45594efa4cbe
+BOOK-040,Sticky Notes Set,Color-coded sticky notes set with five sizes and adhesive strength,Books and Stationery,299,INR,120,https://images.unsplash.com/photo-1586281380349-632531db7ed4

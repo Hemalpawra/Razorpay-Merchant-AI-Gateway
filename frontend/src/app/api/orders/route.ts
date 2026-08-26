@@ -16,7 +16,9 @@ export async function GET(request: Request) {
       .select(`
         *,
         customer_details (*),
-        buyer_sessions (*)
+        buyer_sessions (*),
+        order_items (*),
+        invoices (*)
       `)
       .order('created_at', { ascending: false });
 

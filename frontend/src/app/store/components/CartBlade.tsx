@@ -36,15 +36,10 @@ import {
 
 import { BladeRoot } from "./BladeRoot";
 import { useAiChat } from "./StoreAiProvider";
-import { discountPct, getProduct, type Product } from "@/lib/store/catalog";
+import { discountPct, type Product } from "@/lib/store/catalog";
+import { useStoreCart, type StoreCartLine } from "./StoreCartProvider";
 
-type CartLine = { product: Product; qty: number; variant: string };
-
-const initialSlugs: { slug: string; qty: number; variant: string }[] = [
-  { slug: "sony-wh-1000xm5", qty: 1, variant: "Color: Black · Over-Ear" },
-  { slug: "boat-airdopes-131-pro", qty: 1, variant: "Color: Black" },
-  { slug: "jbl-tune-770nc", qty: 1, variant: "Color: Blue" },
-];
+type CartLine = StoreCartLine;
 
 const COUPONS: Record<string, number> = { ACME1500: 1500, SAVE500: 500 };
 const FREE_DELIVERY_THRESHOLD = 1499;
@@ -206,14 +201,7 @@ export default function CartBlade({
 }) {
   const { openChat } = useAiChat();
   const router = useRouter();
-  const [lines, setLines] = useState<CartLine[]>(() =>
-    initialSlugs
-      .map(({ slug, qty, variant }) => {
-        const product = getProduct(slug);
-        return product ? { product, qty, variant } : null;
-      })
-      .filter((x): x is CartLine => x !== null),
-  );
+  const { lines, updateQuantity, removeFromCart } = useStoreCart();
   const [coupon, setCoupon] = useState("");
   const [applied, setApplied] = useState<{ code: string; value: number } | null>(null);
   const [couponError, setCouponError] = useState("");
@@ -321,11 +309,9 @@ export default function CartBlade({
                       <CartRow
                         line={line}
                         onQty={(qty) =>
-                          setLines((prev) =>
-                            prev.map((l, idx) => (idx === i ? { ...l, qty } : l)),
-                          )
+                          updateQuantity(line.product.slug, qty)
                         }
-                        onRemove={() => setLines((prev) => prev.filter((_, idx) => idx !== i))}
+                        onRemove={() => removeFromCart(line.product.slug)}
                       />
                     </Box>
                     <Divider />

@@ -41,7 +41,7 @@ export default function ProductsPage() {
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch('/api/products?status=all');
       const data = await res.json();
       if (data.products) {
         const mapped: Product[] = data.products.map((p: any) => ({
@@ -50,7 +50,7 @@ export default function ProductsPage() {
           category: p.category || 'General',
           price: `₹${Number(p.price).toLocaleString('en-IN')}`,
           stock: p.stock_qty || 0,
-          status: p.stock_qty <= 0 ? 'out_of_stock' : p.stock_qty <= 10 ? 'low_stock' : (p.status || 'active'),
+          status: p.status !== 'active' ? (p.status || 'active') : p.stock_qty <= 0 ? 'out_of_stock' : p.stock_qty <= 10 ? 'low_stock' : 'active',
           sku: p.sku
         }));
         setProducts(mapped);
@@ -199,13 +199,15 @@ export default function ProductsPage() {
         </Box>
 
         {/* Filter Tabs */}
-        <Box marginBottom="spacing.5">
-          <Tabs variant="bordered" value={selectedTab} onChange={({ value }: any) => setSelectedTab(value || 'all')}>
-            <TabItem value="all">{`All Products (${products.length})`}</TabItem>
-            <TabItem value="active">{`Active (${activeCount})`}</TabItem>
-            <TabItem value="low_stock">{`Low Stock (${lowStockCount})`}</TabItem>
-            <TabItem value="out_of_stock">{`Out of Stock (${outOfStockCount})`}</TabItem>
-          </Tabs>
+        <Box marginBottom="spacing.5" width="100%" overflowX="auto">
+          <Box display="flex" width="100%" minWidth="max-content">
+            <Tabs variant="bordered" value={selectedTab} onChange={({ value }: any) => setSelectedTab(value || 'all')}>
+              <TabItem value="all">{`All Products (${products.length})`}</TabItem>
+              <TabItem value="active">{`Active (${activeCount})`}</TabItem>
+              <TabItem value="low_stock">{`Low Stock (${lowStockCount})`}</TabItem>
+              <TabItem value="out_of_stock">{`Out of Stock (${outOfStockCount})`}</TabItem>
+            </Tabs>
+          </Box>
         </Box>
 
         {/* Product Grid */}

@@ -1,16 +1,37 @@
 'use client';
 
-import { use } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { SiteHeader } from "../../components/SiteHeader";
 import ProductDetailBlade from "../../components/ProductDetailBlade";
-import { getProduct, relatedProducts } from "@/lib/store/catalog";
+import { mapDbProduct, relatedProducts } from "@/lib/store/catalog";
 import { Box, Button, Heading, Text } from "@razorpay/blade/components";
 import { BladeRoot } from "../../components/BladeRoot";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const resolvedParams = use(params);
-  const product = getProduct(resolvedParams.slug);
+  const [product, setProduct] = useState<ReturnType<typeof mapDbProduct> | null>(null);
+  const [related, setRelated] = useState<ReturnType<typeof mapDbProduct>[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { slug } = use(params);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch('/api/products?status=active')
+      .then((response) => response.json())
+      .then((data) => {
+        const live = (data.products ?? []).map(mapDbProduct);
+        const match = live.find((item: ReturnType<typeof mapDbProduct>) => item.slug === slug) ?? null;
+        setProduct(match);
+        setRelated(match ? relatedProducts(match, live) : []);
+      })
+      .catch(() => {
+        setProduct(null);
+        setRelated([]);
+      })
+      .finally(() => setLoading(false));
+  }, [slug]);
+
+  if (loading) return null;
 
   if (!product) {
     return (
@@ -34,8 +55,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       </Box>
     );
   }
-
-  const related = relatedProducts(product);
 
   return (
     <Box backgroundColor="surface.background.gray.subtle" minHeight="100vh">

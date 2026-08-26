@@ -15,7 +15,8 @@ export async function GET(request: Request) {
       .select(`
         *,
         product_matches (*, product:products (*)),
-        session_checks (*)
+        session_checks (*),
+        ai_conversation_messages (*)
       `)
       .order('created_at', { ascending: false });
 

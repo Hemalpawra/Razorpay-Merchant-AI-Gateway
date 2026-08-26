@@ -1,49 +1,30 @@
 'use client';
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
   Amount,
-  Badge,
   Box,
   Button,
   Card,
   CardBody,
-  CalendarIcon,
-  CheckCircleIcon,
   Divider,
   Heading,
-  HeadsetIcon,
-  InfoIcon,
   LockIcon,
-  MailIcon,
-  MapPinIcon,
-  Modal,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
   PackageIcon,
-  PhoneIcon,
-  PlusIcon,
   Radio,
   RadioGroup,
-  RefreshIcon,
-  SearchIcon,
   ShieldIcon,
   Text,
   TextInput,
-  TrashIcon,
-  EditIcon,
   ZapIcon,
 } from "@razorpay/blade/components";
 
 import { BladeRoot } from "./BladeRoot";
-import { getProduct } from "@/lib/store/catalog";
+import { useStoreCart } from "./StoreCartProvider";
 
 type Address = {
-  id: string;
-  label: string;
   name: string;
   phone: string;
   email: string;
@@ -53,30 +34,18 @@ type Address = {
   pincode: string;
 };
 
-const initialAddresses: Address[] = [
-  {
-    id: "home",
-    label: "Home",
-    name: "Hemal Singh",
-    phone: "+91 98765 43210",
-    email: "hemal.singh@example.com",
-    line1: "12-5-98/A, Road No. 3, Banjara Hills",
-    city: "Hyderabad",
-    state: "Telangana",
-    pincode: "500034",
-  },
-  {
-    id: "work",
-    label: "Work",
-    name: "Hemal Singh",
-    phone: "+91 98765 43210",
-    email: "hemal.work@example.com",
-    line1: "91 Springboard, 2nd Floor, Hitech City",
-    city: "Hyderabad",
-    state: "Telangana",
-    pincode: "500081",
-  },
-];
+const emptyAddress: Address = {
+  name: "",
+  phone: "",
+  email: "",
+  line1: "",
+  city: "",
+  state: "",
+  pincode: "",
+};
+
+const isAddressComplete = (a: Address) =>
+  Boolean(a.name.trim() && a.phone.trim() && a.email.trim() && a.line1.trim() && a.city.trim() && a.state.trim() && a.pincode.trim());
 
 const shippingMethods = [
   {
@@ -99,21 +68,14 @@ const shippingMethods = [
 
 export default function CheckoutBlade() {
   const router = useRouter();
-  const [addresses, setAddresses] = useState<Address[]>(initialAddresses);
-  const [selectedAddr, setSelectedAddr] = useState("home");
+  const [address, setAddress] = useState<Address>(emptyAddress);
   const [shipping, setShipping] = useState("standard");
   const [payMethod, setPayMethod] = useState("upi");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { lines: cartItems } = useStoreCart();
 
-  const cartItems = useMemo(
-    () => [
-      { product: getProduct("sony-wh-1000xm5"), qty: 1 },
-      { product: getProduct("boat-airdopes-131-pro"), qty: 1 },
-      { product: getProduct("jbl-tune-770nc"), qty: 1 },
-    ].filter((x): x is { product: NonNullable<ReturnType<typeof getProduct>>; qty: number } => Boolean(x.product)),
-    []
-  );
+  const setField = (key: keyof Address) => (value: string) => setAddress((prev) => ({ ...prev, [key]: value }));
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.qty, 0);
   const selectedShip = shippingMethods.find((s) => s.id === shipping);
@@ -121,78 +83,102 @@ export default function CheckoutBlade() {
   const tax = Math.round(subtotal * 0.18);
   const grandTotal = subtotal + shippingFee + tax;
 
+  const loadRazorpayScript = () =>
+    new Promise<boolean>((resolve) => {
+      if ((window as any).Razorpay) return resolve(true);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+
   const handlePlaceOrder = async () => {
+    setErrorMessage(null);
+
+    if (cartItems.length === 0) {
+      setErrorMessage("Your cart is empty. Add a product before checking out.");
+      return;
+    }
+    if (!isAddressComplete(address)) {
+      setErrorMessage("Please fill in your full name, contact details and delivery address.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const activeAddress = addresses.find((a) => a.id === selectedAddr) || addresses[0];
-      
       const res = await fetch("/api/checkout/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: grandTotal,
           currency: "INR",
+          shipping_method: shipping,
           customer: {
-            full_name: activeAddress.name,
-            email: activeAddress.email,
-            phone: activeAddress.phone,
-            line1: activeAddress.line1,
-            city: activeAddress.city,
-            state: activeAddress.state,
-            pincode: activeAddress.pincode,
+            full_name: address.name,
+            email: address.email,
+            phone: address.phone,
+            line1: address.line1,
+            city: address.city,
+            state: address.state,
+            pincode: address.pincode,
             payment_mode: payMethod,
           },
-          items: cartItems.map((i) => ({ sku: (i.product as any).sku || i.product.slug, name: i.product.name, price: i.product.price, qty: i.qty })),
+          items: cartItems.map((i) => ({ sku: (i.product as any).sku || i.product.slug, qty: i.qty })),
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok || data.error) {
-        alert(`Checkout Error: ${data.error || "Could not create order"}`);
+        setErrorMessage(data.error || "Could not create order. Please try again.");
         setIsSubmitting(false);
         return;
       }
 
-      // Check if Razorpay SDK script is loaded
-      const loadScript = () =>
-        new Promise((resolve) => {
-          if ((window as any).Razorpay) return resolve(true);
-          const script = document.createElement("script");
-          script.src = "https://checkout.razorpay.com/v1/checkout.js";
-          script.onload = () => resolve(true);
-          script.onerror = () => resolve(false);
-          document.body.appendChild(script);
-        });
-
-      await loadScript();
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded || !(window as any).Razorpay) {
+        setErrorMessage("Could not load the Razorpay checkout. Please check your connection and try again.");
+        setIsSubmitting(false);
+        return;
+      }
 
       const options = {
         key: data.key_id,
         amount: data.amount,
         currency: data.currency,
         name: "ElectroStore",
-        description: "Razorpay AI Gateway Demo Checkout",
+        description: "Razorpay AI Gateway Checkout",
         order_id: data.razorpay_order_id,
         handler: async function (response: any) {
-          await fetch("/api/checkout/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id || data.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id || `pay_${Date.now()}`,
-              razorpay_signature: response.razorpay_signature || "mock_sig",
-              db_order_id: data.db_order_id,
-              customer: activeAddress,
-            }),
-          });
-          setIsSubmitting(false);
-          router.push(`/store/order-success/${data.db_order_id || data.razorpay_order_id}`);
+          try {
+            const verifyRes = await fetch("/api/checkout/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                db_order_id: data.db_order_id,
+                customer: address,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok || verifyData.error) {
+              setErrorMessage(verifyData.error || "Payment verification failed. Please contact support before retrying.");
+              setIsSubmitting(false);
+              return;
+            }
+            setIsSubmitting(false);
+            router.push(`/store/order-success/${data.db_order_id || data.razorpay_order_id}`);
+          } catch (err: any) {
+            setErrorMessage(err.message || "Payment verification failed.");
+            setIsSubmitting(false);
+          }
         },
         prefill: {
-          name: activeAddress.name,
-          email: activeAddress.email,
-          contact: activeAddress.phone,
+          name: address.name,
+          email: address.email,
+          contact: address.phone,
         },
         theme: { color: "#0066FF" },
         modal: {
@@ -202,28 +188,15 @@ export default function CheckoutBlade() {
         },
       };
 
-      if ((window as any).Razorpay) {
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
-      } else {
-        // Fallback for mock environments without external script loading
-        await fetch("/api/checkout/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            razorpay_order_id: data.razorpay_order_id,
-            razorpay_payment_id: `pay_mock_${Date.now()}`,
-            razorpay_signature: "mock_sig",
-            db_order_id: data.db_order_id,
-            customer: activeAddress,
-          }),
-        });
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        setErrorMessage(response?.error?.description || "Payment failed. Please try again with a different payment method.");
         setIsSubmitting(false);
-        router.push(`/store/order-success/${data.db_order_id || data.razorpay_order_id}`);
-      }
+      });
+      rzp.open();
     } catch (err: any) {
       console.error("Place order failed:", err);
-      alert(`Checkout failed: ${err.message}`);
+      setErrorMessage(err.message || "Checkout failed. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -243,54 +216,71 @@ export default function CheckoutBlade() {
               <Card elevation="lowRaised" padding="spacing.5">
                 <CardBody>
                   <Box display="flex" flexDirection="column" gap="spacing.5">
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Heading size="small" as="h2">
-                        1. Delivery Address
-                      </Heading>
-                      <Button variant="tertiary" size="small" icon={PlusIcon} onClick={() => setShowAddModal(true)}>
-                        Add new address
-                      </Button>
+                    <Heading size="small" as="h2">
+                      1. Delivery Address
+                    </Heading>
+
+                    <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
+                      <Box flex="1" minWidth="240px">
+                        <TextInput
+                          label="Full name"
+                          value={address.name}
+                          onChange={({ value }) => setField("name")(value ?? "")}
+                          necessityIndicator="required"
+                        />
+                      </Box>
+                      <Box flex="1" minWidth="240px">
+                        <TextInput
+                          label="Phone number"
+                          value={address.phone}
+                          onChange={({ value }) => setField("phone")(value ?? "")}
+                          necessityIndicator="required"
+                        />
+                      </Box>
                     </Box>
 
-                    <RadioGroup
-                      label="Select a delivery address"
-                      value={selectedAddr}
-                      onChange={({ value }) => setSelectedAddr(value)}
-                    >
-                      <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
-                        {addresses.map((addr) => (
-                          <Box
-                            key={addr.id}
-                            flex="1"
-                            minWidth="260px"
-                            borderWidth="thin"
-                            borderColor={selectedAddr === addr.id ? "interactive.border.primary.default" : "surface.border.gray.muted"}
-                            borderRadius="medium"
-                            padding="spacing.4"
-                            backgroundColor="surface.background.gray.intense"
-                          >
-                            <Radio value={addr.id}>
-                              <Box display="flex" flexDirection="column" gap="spacing.1">
-                                <Box display="flex" gap="spacing.3" alignItems="center">
-                                  <Text size="small" weight="semibold">
-                                    {addr.name}
-                                  </Text>
-                                  <Badge color="information" size="small">
-                                    {addr.label}
-                                  </Badge>
-                                </Box>
-                                <Text size="xsmall" color="surface.text.gray.muted">
-                                  {`${addr.line1}, ${addr.city}, ${addr.state} - ${addr.pincode}`}
-                                </Text>
-                                <Text size="xsmall" color="surface.text.gray.muted">
-                                  {`Phone: ${addr.phone}`}
-                                </Text>
-                              </Box>
-                            </Radio>
-                          </Box>
-                        ))}
+                    <TextInput
+                      label="Email"
+                      type="email"
+                      value={address.email}
+                      onChange={({ value }) => setField("email")(value ?? "")}
+                      necessityIndicator="required"
+                    />
+
+                    <TextInput
+                      label="Address line"
+                      placeholder="House no., street, area"
+                      value={address.line1}
+                      onChange={({ value }) => setField("line1")(value ?? "")}
+                      necessityIndicator="required"
+                    />
+
+                    <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
+                      <Box flex="1" minWidth="180px">
+                        <TextInput
+                          label="City"
+                          value={address.city}
+                          onChange={({ value }) => setField("city")(value ?? "")}
+                          necessityIndicator="required"
+                        />
                       </Box>
-                    </RadioGroup>
+                      <Box flex="1" minWidth="180px">
+                        <TextInput
+                          label="State"
+                          value={address.state}
+                          onChange={({ value }) => setField("state")(value ?? "")}
+                          necessityIndicator="required"
+                        />
+                      </Box>
+                      <Box flex="1" minWidth="140px">
+                        <TextInput
+                          label="Pincode"
+                          value={address.pincode}
+                          onChange={({ value }) => setField("pincode")(value ?? "")}
+                          necessityIndicator="required"
+                        />
+                      </Box>
+                    </Box>
                   </Box>
                 </CardBody>
               </Card>
@@ -440,12 +430,22 @@ export default function CheckoutBlade() {
                       <Amount value={grandTotal} size="medium" type="heading" suffix="none" />
                     </Box>
 
+                    {errorMessage && (
+                      <Alert
+                        color="negative"
+                        isFullWidth
+                        title="Checkout error"
+                        description={errorMessage}
+                      />
+                    )}
+
                     <Button
                       variant="primary"
                       size="large"
                       icon={LockIcon}
                       isFullWidth
                       isLoading={isSubmitting}
+                      isDisabled={cartItems.length === 0}
                       onClick={handlePlaceOrder}
                     >
                       Pay &amp; Place Order

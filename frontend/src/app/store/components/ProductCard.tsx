@@ -15,6 +15,7 @@ import {
   Text,
 } from "@razorpay/blade/components";
 import { BladeRoot } from "./BladeRoot";
+import { useStoreCart } from "./StoreCartProvider";
 import { discountPct, type Product } from "@/lib/store/catalog";
 
 export function Stars({ rating, reviews }: { rating: number; reviews: number }) {
@@ -33,6 +34,7 @@ export function Stars({ rating, reviews }: { rating: number; reviews: number }) 
 
 export function ProductCard({ product, list = false }: { product: Product; list?: boolean }) {
   const router = useRouter();
+  const { addToCart } = useStoreCart();
   const off = discountPct(product);
 
   return (
@@ -132,7 +134,7 @@ export function ProductCard({ product, list = false }: { product: Product; list?
                   size="xsmall"
                   icon={ShoppingCartIcon}
                   isFullWidth
-                  onClick={() => router.push('/store/cart')}
+                  onClick={() => addToCart(product)}
                 >
                   Add to Cart
                 </Button>
@@ -142,7 +144,7 @@ export function ProductCard({ product, list = false }: { product: Product; list?
                   variant="primary"
                   size="xsmall"
                   isFullWidth
-                  onClick={() => router.push('/store/checkout')}
+                  onClick={() => { addToCart(product); router.push('/store/checkout'); }}
                 >
                   Buy Now
                 </Button>

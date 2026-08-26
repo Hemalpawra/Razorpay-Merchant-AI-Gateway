@@ -1,8 +1,10 @@
 'use client';
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Alert,
   Amount,
   Badge,
   Box,
@@ -11,6 +13,7 @@ import {
   CardBody,
   CheckCircleIcon,
   ChevronRightIcon,
+  EmptyState,
   Heading,
   RefreshIcon,
   ShieldIcon,
@@ -27,10 +30,7 @@ import { BladeRoot } from "./components/BladeRoot";
 import { SiteHeader } from "./components/SiteHeader";
 import { ProductCard } from "./components/ProductCard";
 import { useAiChat } from "./components/StoreAiProvider";
-import { categories, products } from "@/lib/store/catalog";
-
-const featured = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 6);
-const bestSellers = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 5);
+import { categories, mapDbProduct, type Product } from "@/lib/store/catalog";
 
 const trustItems = [
   { icon: ShieldIcon, title: "Secure Payments", sub: "Powered by Razorpay" },
@@ -69,6 +69,22 @@ function SectionHeader({
 export default function StoreHomePage() {
   const { openChat } = useAiChat();
   const router = useRouter();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  useEffect(() => {
+    fetch('/api/products?status=active')
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.error) throw new Error(data.error);
+        setProducts((data.products ?? []).map(mapDbProduct));
+        setStatus("ready");
+      })
+      .catch(() => setStatus("error"));
+  }, []);
+
+  const featured = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 6);
+  const bestSellers = [...products].sort((a, b) => b.popularity - a.popularity).slice(0, 5);
 
   return (
     <Box backgroundColor="surface.background.gray.subtle" minHeight="100vh">
@@ -196,13 +212,28 @@ export default function StoreHomePage() {
           {/* Featured Products */}
           <Box marginTop="spacing.8">
             <SectionHeader title="Featured Products" action="View all products" />
-            <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
-              {featured.map((p) => (
-                <Box key={p.slug} flex="1" minWidth="240px" maxWidth="380px">
-                  <ProductCard product={p} />
-                </Box>
-              ))}
-            </Box>
+            {status === "error" ? (
+              <Alert
+                color="negative"
+                isFullWidth
+                title="Unable to load products"
+                description="We could not reach the product catalog. Please refresh the page to try again."
+              />
+            ) : status === "ready" && featured.length === 0 ? (
+              <EmptyState
+                title="No products yet"
+                description="This store hasn't added any products to its catalog yet. Check back soon."
+                size="medium"
+              />
+            ) : (
+              <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
+                {featured.map((p) => (
+                  <Box key={p.slug} flex="1" minWidth="240px" maxWidth="380px">
+                    <ProductCard product={p} />
+                  </Box>
+                ))}
+              </Box>
+            )}
           </Box>
 
           {/* AI Assistant Banner */}
@@ -302,6 +333,7 @@ export default function StoreHomePage() {
           </Box>
 
           {/* Best Sellers */}
+          {bestSellers.length > 0 && (
           <Box marginTop="spacing.8">
             <SectionHeader
               title="Best Sellers"
@@ -372,6 +404,7 @@ export default function StoreHomePage() {
               ))}
             </Box>
           </Box>
+          )}
         </BladeRoot>
       </Box>
 
