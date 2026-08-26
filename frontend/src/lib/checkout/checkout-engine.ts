@@ -72,7 +72,7 @@ export class OrderCheckoutEngine {
     const skus = Array.from(requestedQtyBySku.keys());
     const { data: dbProducts, error: productsErr } = await supabase
       .from('products')
-      .select('sku, price, status, stock_qty')
+      .select('id, sku, name, image_url, price, status, stock_qty')
       .eq('merchant_id', finalMerchantId)
       .in('sku', skus);
 
@@ -80,10 +80,27 @@ export class OrderCheckoutEngine {
       throw new Error(`Could not verify cart items: ${productsErr.message}`);
     }
 
-    type DbProductRow = { sku: string; price: number; status: string; stock_qty: number };
+    type DbProductRow = {
+      id: string;
+      sku: string;
+      name: string;
+      image_url: string | null;
+      price: number;
+      status: string;
+      stock_qty: number;
+    };
     const productRows = (dbProducts ?? []) as unknown as DbProductRow[];
     const productBySku = new Map<string, DbProductRow>(productRows.map((p) => [p.sku, p]));
     let subtotal = 0;
+    const orderLineItems: Array<{
+      product_id: string;
+      sku: string;
+      name: string;
+      image_url: string | null;
+      unit_price: number;
+      qty: number;
+      line_total: number;
+    }> = [];
     for (const [sku, qty] of requestedQtyBySku.entries()) {
       const product = productBySku.get(sku);
       if (!product || product.status !== 'active') {
@@ -92,12 +109,22 @@ export class OrderCheckoutEngine {
       if (Number(product.stock_qty ?? 0) < qty) {
         throw new Error(`Not enough stock for ${sku}`);
       }
-      subtotal += Number(product.price) * qty;
+      const lineTotal = Number(product.price) * qty;
+      subtotal += lineTotal;
+      orderLineItems.push({
+        product_id: product.id,
+        sku: product.sku,
+        name: product.name,
+        image_url: product.image_url,
+        unit_price: Number(product.price),
+        qty,
+        line_total: lineTotal,
+      });
     }
 
     const shippingFee = SHIPPING_METHODS[shipping_method];
-    const tax = Math.round(subtotal * TAX_RATE);
-    const amount = subtotal + shippingFee + tax;
+    const tax = Math.round(subtotal * TAX_RATE * 100) / 100;
+    const amount = Math.round((subtotal + shippingFee + tax) * 100) / 100;
 
     if (amount <= 0) {
       throw new Error('Valid checkout amount is required');
@@ -123,12 +150,30 @@ export class OrderCheckoutEngine {
         session_id: session_id || null,
         razorpay_order_id: razorpayOrder.id,
         amount,
+        subtotal,
+        tax_amount: tax,
+        shipping_amount: shippingFee,
         currency,
         status: 'draft',
         checkout_url: '/store/checkout'
       })
       .select('*')
       .single();
+
+    if (dbOrder) {
+      await supabase.from('order_items').insert(
+        orderLineItems.map((item) => ({
+          order_id: dbOrder.id,
+          product_id: item.product_id,
+          sku: item.sku,
+          name: item.name,
+          image_url: item.image_url,
+          unit_price: item.unit_price,
+          qty: item.qty,
+          line_total: item.line_total,
+        }))
+      );
+    }
 
     if (dbOrder && customer) {
       await supabase.from('customer_details').insert({
@@ -192,6 +237,32 @@ export class OrderCheckoutEngine {
 
     const supabase = await createClient();
 
+    // Fetch the existing order first so we can detect an already-processed payment
+    // and avoid double-decrementing stock or issuing a duplicate invoice.
+    let existingQuery = supabase.from('orders').select('*');
+    existingQuery = db_order_id
+      ? existingQuery.eq('id', db_order_id)
+      : existingQuery.eq('razorpay_order_id', razorpay_order_id);
+    const { data: existingOrder } = await existingQuery.single();
+
+    if (!existingOrder) {
+      throw new Error('Order not found');
+    }
+
+    if (existingOrder.status === 'paid') {
+      const { data: existingInvoice } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('order_id', existingOrder.id)
+        .maybeSingle();
+      return {
+        success: true,
+        message: 'Payment already verified for this order.',
+        order: existingOrder,
+        invoice: existingInvoice ?? null
+      };
+    }
+
     let query = supabase.from('orders').update({
       status: 'paid',
       razorpay_payment_id,
@@ -223,13 +294,37 @@ export class OrderCheckoutEngine {
       });
     }
 
-    // Generate Official Attached Invoice
+    // Decrement stock for purchased items now that payment is confirmed.
+    if (updatedOrder) {
+      const { data: purchasedItems } = await supabase
+        .from('order_items')
+        .select('product_id, qty')
+        .eq('order_id', updatedOrder.id);
+
+      for (const item of purchasedItems ?? []) {
+        if (!item.product_id) continue;
+        const { data: product } = await supabase
+          .from('products')
+          .select('stock_qty')
+          .eq('id', item.product_id)
+          .single();
+        if (product) {
+          await supabase
+            .from('products')
+            .update({ stock_qty: Math.max(0, Number(product.stock_qty) - Number(item.qty)) })
+            .eq('id', item.product_id);
+        }
+      }
+    }
+
+    // Generate Official Attached Invoice using the totals recorded at order creation time.
     let invoiceData = null;
     if (updatedOrder) {
       const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-      const subtotal = Number(updatedOrder.amount) || 0;
-      const taxAmount = Math.round(subtotal * 0.18 * 100) / 100;
-      const grandTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+      const subtotal = Number(updatedOrder.subtotal) || 0;
+      const taxAmount = Number(updatedOrder.tax_amount) || 0;
+      const shippingAmount = Number(updatedOrder.shipping_amount) || 0;
+      const grandTotal = Number(updatedOrder.amount) || Math.round((subtotal + taxAmount + shippingAmount) * 100) / 100;
 
       const generatedInvoice = {
         invoice_number: invoiceNumber,
