@@ -61,11 +61,12 @@ const statusConfig: Record<SessionStatus, { color: 'primary' | 'notice' | 'infor
 };
 
 function mapDbStatusToUi(dbStatus: string): SessionStatus {
-  if (dbStatus === 'created') return 'New';
+  if (dbStatus === 'created' || dbStatus === 'active') return 'New';
   if (dbStatus === 'searching') return 'Matching';
   if (dbStatus === 'awaiting_confirmation') return 'Awaiting Confirmation';
   if (dbStatus === 'claimed') return 'Awaiting Details';
   if (dbStatus === 'completed') return 'Checkout Ready';
+  if (dbStatus === 'checkout_ready') return 'Checkout Ready';
   if (dbStatus === 'paid') return 'Paid';
   return 'Matching';
 }

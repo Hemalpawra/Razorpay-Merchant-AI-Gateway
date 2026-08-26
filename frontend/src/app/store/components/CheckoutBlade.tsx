@@ -23,6 +23,7 @@ import {
 
 import { BladeRoot } from "./BladeRoot";
 import { useStoreCart } from "./StoreCartProvider";
+import { useAiChat } from "./StoreAiProvider";
 
 type Address = {
   name: string;
@@ -74,6 +75,7 @@ export default function CheckoutBlade() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { lines: cartItems } = useStoreCart();
+  const { sessionId } = useAiChat();
 
   const setField = (key: keyof Address) => (value: string) => setAddress((prev) => ({ ...prev, [key]: value }));
 
@@ -113,6 +115,7 @@ export default function CheckoutBlade() {
         body: JSON.stringify({
           currency: "INR",
           shipping_method: shipping,
+          session_id: sessionId,
           customer: {
             full_name: address.name,
             email: address.email,

@@ -22,6 +22,8 @@ import {
 } from "@razorpay/blade/components";
 
 import { BladeRoot } from "./BladeRoot";
+import { useAiChat } from "./StoreAiProvider";
+import { useStoreCart } from "./StoreCartProvider";
 import { type Product } from "@/lib/store/catalog";
 
 type MatchedProduct = {
@@ -176,12 +178,13 @@ const INITIAL_WELCOME_MESSAGE: ChatMessageItem = {
 
 export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
   const router = useRouter();
+  const { sessionId, setSessionId } = useAiChat();
+  const { addToCart } = useStoreCart();
   const [messages, setMessages] = useState<ChatMessageItem[]>([
     INITIAL_WELCOME_MESSAGE,
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSendingRef = useRef(false);
@@ -270,10 +273,24 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
   };
 
   const handleAddToCartAndCheckout = (item: MatchedProduct) => {
+    if (item.sku) {
+      addToCart(
+        {
+          id: item.id || item.sku,
+          slug: item.sku,
+          name: item.name,
+          price: item.price,
+          description: item.description || "",
+          image: "",
+          category: "",
+          stock: item.stock ?? 0,
+          sku: item.sku,
+        } as any,
+        1,
+      );
+    }
     onDismiss();
-    router.push(
-      `/store/checkout?sku=${encodeURIComponent(item.sku || item.name)}`,
-    );
+    router.push("/store/checkout");
   };
 
   return (

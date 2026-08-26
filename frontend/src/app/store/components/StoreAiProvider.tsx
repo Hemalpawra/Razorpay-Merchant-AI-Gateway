@@ -10,6 +10,8 @@ type AiChatContextValue = {
   openChat: (product?: Product) => void;
   closeChat: () => void;
   isOpen: boolean;
+  sessionId: string | null;
+  setSessionId: (id: string | null) => void;
 };
 
 const AiChatContext = createContext<AiChatContextValue | null>(null);
@@ -23,6 +25,7 @@ export function useAiChat(): AiChatContextValue {
 export function StoreAiProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [product, setProduct] = useState<Product | undefined>(undefined);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -35,7 +38,10 @@ export function StoreAiProvider({ children }: { children: ReactNode }) {
   }, []);
   const closeChat = useCallback(() => setIsOpen(false), []);
 
-  const value = useMemo(() => ({ openChat, closeChat, isOpen }), [openChat, closeChat, isOpen]);
+  const value = useMemo(
+    () => ({ openChat, closeChat, isOpen, sessionId, setSessionId }),
+    [openChat, closeChat, isOpen, sessionId],
+  );
 
   return (
     <AiChatContext.Provider value={value}>

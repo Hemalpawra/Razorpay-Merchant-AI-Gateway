@@ -56,6 +56,7 @@ export interface OrderItem {
   invoiceId: string;
   razorpayOrderId: string;
   createdAt: string;
+  rawSessionId?: string | null;
   rawOrder?: any;
 }
 
@@ -226,6 +227,46 @@ function OrderDetailDrawer({
         </CardBody>
       </Card>
 
+      <Card
+        elevation="none"
+        backgroundColor="surface.background.gray.subtle"
+        marginBottom="spacing.5"
+      >
+        <CardBody>
+          <Box display="flex" flexDirection="column" gap="spacing.3">
+            <Text
+              size="small"
+              weight="semibold"
+              color="surface.text.gray.muted"
+            >
+              Related Links
+            </Text>
+            <Link href={`/store/order-success/${order.rawOrder?.id ?? order.id}`} passHref legacyBehavior>
+              <Button variant="secondary" size="small" icon={FileTextIcon} iconPosition="left" isFullWidth>
+                View Invoice &amp; Order Summary
+              </Button>
+            </Link>
+            {order.rawSessionId && (
+              <Link href={`/dashboard/ai-agent?session=${order.rawSessionId}`} passHref legacyBehavior>
+                <Button variant="secondary" size="small" icon={SparklesIcon} iconPosition="left" isFullWidth>
+                  Open Related Conversation
+                </Button>
+              </Link>
+            )}
+            <Link href={`/store/track/${order.rawOrder?.id ?? order.id}`} passHref legacyBehavior>
+              <Button variant="secondary" size="small" icon={ShoppingBagIcon} iconPosition="left" isFullWidth>
+                Track Shipment
+              </Button>
+            </Link>
+            <Link href="/dashboard/audit-trail" passHref legacyBehavior>
+              <Button variant="secondary" size="small" icon={ClockIcon} iconPosition="left" isFullWidth>
+                View Audit Trail
+              </Button>
+            </Link>
+          </Box>
+        </CardBody>
+      </Card>
+
       <Box marginTop="auto" display="flex" gap="spacing.3">
         <Button variant="tertiary" onClick={onClose} isFullWidth>
           Close
@@ -250,27 +291,43 @@ export default function OrdersPage() {
           const cust = Array.isArray(o.customer_details)
             ? o.customer_details[0]
             : o.customer_details;
+          const session = Array.isArray(o.buyer_sessions)
+            ? o.buyer_sessions[0]
+            : o.buyer_sessions;
+          const source = session?.external_ai_name
+            ? session.external_ai_name
+            : o.session_id
+              ? "Merchant AI"
+              : "Human Customer";
+          const isPaid = o.status === "paid";
           return {
             id: o.id.substring(0, 8).toUpperCase(),
             sessionId: o.session_id
               ? o.session_id.substring(0, 8).toUpperCase()
               : "DIRECT",
-            customerName: cust?.full_name || "Customer",
+            customerName: cust?.full_name || session?.external_ai_name || "Customer",
             customerEmail: cust?.email || "customer@example.com",
             customerPhone: cust?.phone || "Not provided",
-            source: o.session_id ? "Store / AI Gateway" : "Direct checkout",
+            source,
             product:
               Array.isArray(o.order_items) && o.order_items.length
                 ? `${o.order_items[0].name}${o.order_items.length > 1 ? ` + ${o.order_items.length - 1} more` : ""}`
                 : "Catalog Order",
             amount: `₹${Number(o.amount).toLocaleString("en-IN")}`,
-            paymentStatus:
-              o.status === "paid"
-                ? "Paid"
-                : o.status === "draft"
-                  ? "Pending"
-                  : "Failed",
-            orderStatus: o.status === "paid" ? "Completed" : "Processing",
+            paymentStatus: isPaid
+              ? "Paid"
+              : o.status === "failed"
+                ? "Failed"
+                : o.status === "cancelled"
+                  ? "Cancelled"
+                  : "Pending",
+            orderStatus: isPaid
+              ? "Completed"
+              : o.status === "failed"
+                ? "Failed"
+                : o.status === "cancelled"
+                  ? "Cancelled"
+                  : "Pending Payment",
             invoiceId:
               Array.isArray(o.invoices) && o.invoices[0]?.invoice_number
                 ? o.invoices[0].invoice_number
@@ -280,6 +337,7 @@ export default function OrdersPage() {
               dateStyle: "medium",
               timeStyle: "short",
             }),
+            rawSessionId: o.session_id,
             rawOrder: o,
           };
         });
@@ -417,7 +475,7 @@ export default function OrdersPage() {
         <CardBody>
           <Box
             display="grid"
-            gridTemplateColumns="1fr 1.2fr 2fr 1fr 1fr 1fr auto"
+            gridTemplateColumns="0.8fr 1.1fr 0.9fr 1.6fr 0.9fr 0.9fr 1fr auto"
             gap="spacing.4"
             paddingY="spacing.3"
             paddingX="spacing.4"
@@ -444,7 +502,14 @@ export default function OrdersPage() {
               weight="semibold"
               color="surface.text.gray.muted"
             >
-              RAZORPAY ID
+              SOURCE
+            </Text>
+            <Text
+              size="xsmall"
+              weight="semibold"
+              color="surface.text.gray.muted"
+            >
+              PRODUCT
             </Text>
             <Text
               size="xsmall"
@@ -501,7 +566,7 @@ export default function OrdersPage() {
                   }
                   borderBottomColor="surface.border.gray.muted"
                   display="grid"
-                  gridTemplateColumns="1fr 1.2fr 2fr 1fr 1fr 1fr auto"
+                  gridTemplateColumns="0.8fr 1.1fr 0.9fr 1.6fr 0.9fr 0.9fr 1fr auto"
                   gap="spacing.4"
                   alignItems="center"
                 >
@@ -512,11 +577,19 @@ export default function OrdersPage() {
                   >
                     {order.id}
                   </Text>
-                  <Text size="small" weight="semibold">
-                    {order.customerName}
-                  </Text>
+                  <Box display="flex" flexDirection="column" gap="spacing.1">
+                    <Text size="small" weight="semibold">
+                      {order.customerName}
+                    </Text>
+                    <Text size="xsmall" color="surface.text.gray.subtle">
+                      Session: {order.sessionId}
+                    </Text>
+                  </Box>
+                  <Badge color={order.source === "Human Customer" ? "neutral" : "information"} size="small">
+                    {order.source}
+                  </Badge>
                   <Text size="xsmall" color="surface.text.gray.subtle">
-                    {order.razorpayOrderId}
+                    {order.product}
                   </Text>
                   <Text size="small" weight="semibold">
                     {order.amount}
