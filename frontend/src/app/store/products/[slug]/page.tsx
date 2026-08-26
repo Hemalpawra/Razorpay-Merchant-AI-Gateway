@@ -10,13 +10,24 @@ import { BladeRoot } from "../../components/BladeRoot";
 
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const [product, setProduct] = useState<ReturnType<typeof mapDbProduct> | null>(null);
+  const [related, setRelated] = useState<ReturnType<typeof mapDbProduct>[]>([]);
   const [loading, setLoading] = useState(true);
   const { slug } = use(params);
 
   useEffect(() => {
-    fetch(`/api/products?status=active&search=${encodeURIComponent(slug)}`)
+    setLoading(true);
+    fetch('/api/products?status=active')
       .then((response) => response.json())
-      .then((data) => setProduct((data.products ?? []).map(mapDbProduct).find((item: ReturnType<typeof mapDbProduct>) => item.slug === slug) ?? null))
+      .then((data) => {
+        const live = (data.products ?? []).map(mapDbProduct);
+        const match = live.find((item: ReturnType<typeof mapDbProduct>) => item.slug === slug) ?? null;
+        setProduct(match);
+        setRelated(match ? relatedProducts(match, live) : []);
+      })
+      .catch(() => {
+        setProduct(null);
+        setRelated([]);
+      })
       .finally(() => setLoading(false));
   }, [slug]);
 
@@ -44,8 +55,6 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
       </Box>
     );
   }
-
-  const related = relatedProducts(product);
 
   return (
     <Box backgroundColor="surface.background.gray.subtle" minHeight="100vh">

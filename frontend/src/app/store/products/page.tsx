@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Alert,
   Amount,
   Badge,
   Box,
@@ -30,13 +31,13 @@ import { SiteHeader } from "../components/SiteHeader";
 import { ProductCard } from "../components/ProductCard";
 import { useAiChat } from "../components/StoreAiProvider";
 import {
-  brands,
   categories,
   categoryName,
   filterProducts,
   formatPrice,
+  getBrands,
   mapDbProduct,
-  products as fallbackProducts,
+  type Product,
 } from "@/lib/store/catalog";
 
 const MAX_PRICE = 100000;
@@ -76,17 +77,21 @@ function ProductsContent() {
   const page = Math.max(1, Number(searchParams.get("page") ?? 1));
 
   const [priceInput, setPriceInput] = useState(String(maxPrice));
-  const [liveProducts, setLiveProducts] = useState<typeof fallbackProducts>([]);
+  const [liveProducts, setLiveProducts] = useState<Product[]>([]);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
     fetch('/api/products?status=active')
       .then((response) => response.json())
       .then((data) => {
-        const live = (data.products ?? []).map(mapDbProduct);
-        setLiveProducts(live.length > 0 ? live : fallbackProducts);
+        if (data.error) throw new Error(data.error);
+        setLiveProducts((data.products ?? []).map(mapDbProduct));
+        setStatus("ready");
       })
-      .catch(() => setLiveProducts(fallbackProducts));
+      .catch(() => setStatus("error"));
   }, []);
+
+  const brands = getBrands(liveProducts);
 
   const updateSearch = (params: Record<string, string | string[] | undefined>) => {
     const current = new URLSearchParams(searchParams.toString());
@@ -325,7 +330,14 @@ function ProductsContent() {
               </Box>
 
               {/* Products Cards */}
-              {pageItems.length === 0 ? (
+              {status === "error" ? (
+                <Alert
+                  color="negative"
+                  isFullWidth
+                  title="Unable to load products"
+                  description="We could not reach the product catalog. Please refresh the page to try again."
+                />
+              ) : pageItems.length === 0 ? (
                 <Card elevation="lowRaised" padding="spacing.7">
                   <CardBody>
                     <Box display="flex" flexDirection="column" alignItems="center" textAlign="center" gap="spacing.4">

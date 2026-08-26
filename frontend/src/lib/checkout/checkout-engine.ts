@@ -3,13 +3,22 @@ import { createRazorpayOrder, verifyRazorpaySignature, RAZORPAY_KEY_ID } from '@
 import { MerchantAuditService } from '@/utils/audit';
 
 export interface CreateOrderParams {
-  amount: number;
   currency?: string;
   merchant_id?: string;
   session_id?: string;
   customer?: any;
-  items?: any[];
+  items?: Array<{ sku: string; qty: number }>;
+  shipping_method?: 'standard' | 'express';
 }
+
+const SHIPPING_METHODS: Record<string, number> = {
+  standard: 0,
+  express: 149,
+};
+
+const TAX_RATE = 0.18;
+const MAX_QTY_PER_LINE = 10;
+const MAX_LINES_PER_ORDER = 50;
 
 export interface VerifyPaymentParams {
   razorpay_order_id: string;
@@ -24,10 +33,28 @@ export class OrderCheckoutEngine {
    * Create a new Razorpay checkout order and record it in Supabase DB
    */
   static async createCheckoutSession(params: CreateOrderParams) {
-    const { amount, currency = 'INR', merchant_id, session_id, customer, items = [] } = params;
+    const { currency = 'INR', merchant_id, session_id, customer, items = [], shipping_method = 'standard' } = params;
 
-    if (!amount || amount <= 0) {
-      throw new Error('Valid checkout amount is required');
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new Error('Cart is empty');
+    }
+    if (items.length > MAX_LINES_PER_ORDER) {
+      throw new Error('Too many distinct items in this order');
+    }
+    if (!(shipping_method in SHIPPING_METHODS)) {
+      throw new Error('Invalid shipping method');
+    }
+
+    // Normalize and validate quantities before trusting anything from the client.
+    const requestedQtyBySku = new Map<string, number>();
+    for (const raw of items) {
+      const sku = String(raw?.sku ?? '').trim();
+      const qty = Number(raw?.qty);
+      if (!sku) throw new Error('Every cart line must reference a product SKU');
+      if (!Number.isInteger(qty) || qty <= 0 || qty > MAX_QTY_PER_LINE) {
+        throw new Error(`Invalid quantity for ${sku}`);
+      }
+      requestedQtyBySku.set(sku, (requestedQtyBySku.get(sku) ?? 0) + qty);
     }
 
     const supabase = await createClient();
@@ -35,7 +62,45 @@ export class OrderCheckoutEngine {
     let finalMerchantId: string = merchant_id || '';
     if (!finalMerchantId) {
       const { data: m } = await supabase.from('merchants').select('id').limit(1).single();
-      finalMerchantId = m?.id || 'm_demo_101';
+      finalMerchantId = m?.id || '';
+    }
+    if (!finalMerchantId) {
+      throw new Error('No merchant is configured for this store');
+    }
+
+    // Recompute the total from live, server-side product prices — never trust client-submitted prices.
+    const skus = Array.from(requestedQtyBySku.keys());
+    const { data: dbProducts, error: productsErr } = await supabase
+      .from('products')
+      .select('sku, price, status, stock_qty')
+      .eq('merchant_id', finalMerchantId)
+      .in('sku', skus);
+
+    if (productsErr) {
+      throw new Error(`Could not verify cart items: ${productsErr.message}`);
+    }
+
+    const productBySku = new Map(
+      (dbProducts ?? []).map((p: { sku: string; price: number; status: string; stock_qty: number }) => [p.sku, p])
+    );
+    let subtotal = 0;
+    for (const [sku, qty] of requestedQtyBySku.entries()) {
+      const product = productBySku.get(sku);
+      if (!product || product.status !== 'active') {
+        throw new Error(`Product ${sku} is no longer available`);
+      }
+      if (Number(product.stock_qty ?? 0) < qty) {
+        throw new Error(`Not enough stock for ${sku}`);
+      }
+      subtotal += Number(product.price) * qty;
+    }
+
+    const shippingFee = SHIPPING_METHODS[shipping_method];
+    const tax = Math.round(subtotal * TAX_RATE);
+    const amount = subtotal + shippingFee + tax;
+
+    if (amount <= 0) {
+      throw new Error('Valid checkout amount is required');
     }
 
     const amountInPaise = Math.round(amount * 100);
@@ -111,14 +176,14 @@ export class OrderCheckoutEngine {
   static async verifyPaymentSession(params: VerifyPaymentParams) {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, db_order_id, customer } = params;
 
-    if (!razorpay_order_id || !razorpay_payment_id) {
-      throw new Error('Missing required Razorpay payment IDs');
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      throw new Error('Missing required Razorpay payment verification fields');
     }
 
     const isValid = verifyRazorpaySignature({
       order_id: razorpay_order_id,
       payment_id: razorpay_payment_id,
-      signature: razorpay_signature || 'mock_sig'
+      signature: razorpay_signature
     });
 
     if (!isValid) {

@@ -41,7 +41,7 @@ export default function ProductsPage() {
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/products');
+      const res = await fetch('/api/products?status=all');
       const data = await res.json();
       if (data.products) {
         const mapped: Product[] = data.products.map((p: any) => ({
@@ -50,7 +50,7 @@ export default function ProductsPage() {
           category: p.category || 'General',
           price: `₹${Number(p.price).toLocaleString('en-IN')}`,
           stock: p.stock_qty || 0,
-          status: p.stock_qty <= 0 ? 'out_of_stock' : p.stock_qty <= 10 ? 'low_stock' : (p.status || 'active'),
+          status: p.status !== 'active' ? (p.status || 'active') : p.stock_qty <= 0 ? 'out_of_stock' : p.stock_qty <= 10 ? 'low_stock' : 'active',
           sku: p.sku
         }));
         setProducts(mapped);
