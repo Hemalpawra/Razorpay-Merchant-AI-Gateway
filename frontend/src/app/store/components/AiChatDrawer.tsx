@@ -24,6 +24,7 @@ import {
 import { BladeRoot } from "./BladeRoot";
 import { useAiChat } from "./StoreAiProvider";
 import { useStoreCart } from "./StoreCartProvider";
+import { RAZORPAY_KEY_ID } from "@/lib/razorpay";
 import { type Product } from "@/lib/store/catalog";
 
 type MatchedProduct = {
@@ -33,6 +34,7 @@ type MatchedProduct = {
   description?: string;
   price: number;
   stock?: number;
+  image_url?: string;
 };
 
 type ChatMessageItem = {
@@ -76,62 +78,56 @@ function GenUIProductCard({
   item: MatchedProduct;
   onAddToCart: (item: MatchedProduct) => void;
 }) {
+  const inStock = (item.stock ?? 0) > 0;
+  const imageUrl = item.image_url ?? "/store/p-headphones.jpg";
+
   return (
     <Card elevation="none" backgroundColor="surface.background.gray.intense">
       <CardBody>
-        <Box display="flex" flexDirection="column" gap="spacing.3">
+        <Box display="flex" gap="spacing.3" alignItems="center" padding="spacing.3">
           <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
+            width="64px"
+            height="64px"
+            borderRadius="small"
+            backgroundColor="surface.background.gray.subtle"
+            flexShrink={0}
+            overflow="hidden"
           >
-            <Badge color="positive" size="small">
-              AI Catalog Match
-            </Badge>
-            <Text
-              size="xsmall"
-              color={
-                (item.stock ?? 0) > 0
-                  ? "surface.text.gray.muted"
-                  : "surface.text.gray.subtle"
-              }
-            >
-              {(item.stock ?? 0) > 0
-                ? `In stock · ${item.stock}`
-                : "Currently unavailable"}
-            </Text>
+            <img
+              src={imageUrl}
+              alt={item.name}
+              width="64"
+              height="64"
+              style={{ objectFit: "cover" }}
+            />
           </Box>
-
-          <Text size="medium" weight="semibold">
-            {item.name}
-          </Text>
-          {item.description && (
-            <Text
-              size="xsmall"
-              color="surface.text.gray.subtle"
-              truncateAfterLines={2}
-            >
-              {item.description}
-            </Text>
-          )}
-
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            marginTop="spacing.2"
-          >
-            <Amount value={item.price} currency="INR" size="medium" />
-            <Button
-              variant="primary"
-              size="small"
-              icon={ShoppingCartIcon}
-              iconPosition="left"
-              onClick={() => onAddToCart(item)}
-              isDisabled={(item.stock ?? 0) <= 0}
-            >
-              Add &amp; Checkout
-            </Button>
+          <Box flex={1} display="flex" flexDirection="column" gap="spacing.1">
+            <Box display="flex" flexWrap="wrap" alignItems="center" gap="spacing.2">
+              <Text size="small" weight="semibold" truncateAfterLines={1}>
+                {item.name}
+              </Text>
+              <Badge color={inStock ? "positive" : "neutral"} size="xsmall">
+                {inStock ? `In Stock · ${item.stock}` : "Out of Stock"}
+              </Badge>
+            </Box>
+            {item.description && (
+              <Text size="xsmall" color="surface.text.gray.subtle" truncateAfterLines={1}>
+                {item.description}
+              </Text>
+            )}
+            <Box display="flex" justifyContent="space-between" alignItems="center" marginTop="spacing.1">
+              <Amount value={item.price} currency="INR" size="medium" />
+              <Button
+                variant="primary"
+                size="xsmall"
+                icon={ShoppingCartIcon}
+                iconPosition="left"
+                onClick={() => onAddToCart(item)}
+                isDisabled={!inStock}
+              >
+                Add & Checkout
+              </Button>
+            </Box>
           </Box>
         </Box>
       </CardBody>
@@ -185,9 +181,20 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSendingRef = useRef(false);
+  const loadRazorpayScript = () =>
+    new Promise<boolean>((resolve) => {
+      if ((window as any).Razorpay) return resolve(true);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
 
   useEffect(() => {
     if (product) {
@@ -301,9 +308,100 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
       );
     }
     onDismiss();
-    router.push("/store/checkout");
+    openDrawerRazorpayCheckout(item);
   };
 
+  const openDrawerRazorpayCheckout = async (item: MatchedProduct) => {
+    setIsSubmitting(true);
+    setErrorMessage(null);
+    try {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded || !(window as any).Razorpay) {
+        throw new Error("Could not load Razorpay checkout");
+      }
+
+      const orderData = await fetch("/api/checkout/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currency: "INR",
+          shipping_method: "standard",
+          session_id: sessionId,
+          customer: {
+            full_name: "",
+            email: "",
+            phone: "",
+            line1: "",
+            city: "",
+            state: "",
+            pincode: "",
+            payment_mode: "upi",
+          },
+          items: [{ sku: item.sku, qty: 1 }],
+        }),
+      }).then((r) => r.json());
+
+      const { key_id, razorpay_order_id, amount, db_order_id } = orderData;
+
+      if (!key_id || !razorpay_order_id) throw new Error("Order creation failed");
+
+      const options = {
+        key: key_id,
+        amount: amount,
+        currency: "INR",
+        name: "ElectroStore",
+        description: `Razorpay AI Gateway Checkout`,
+        order_id: razorpay_order_id,
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch("/api/checkout/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                db_order_id: db_order_id,
+                customer: {},
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok || verifyData.error) {
+              throw new Error(verifyData.error || "Payment verification failed");
+            }
+            setIsSubmitting(false);
+            onDismiss();
+            router.push(`/store/order-success/${db_order_id || razorpay_order_id}`);
+          } catch (err: any) {
+            setErrorMessage(err.message || "Payment verification failed");
+            setIsSubmitting(false);
+          }
+        },
+        prefill: {
+          name: "",
+          email: "",
+          contact: "",
+        },
+        theme: { color: "#0066FF" },
+        modal: {
+          ondismiss: function () {
+            setIsSubmitting(false);
+          },
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on("payment.failed", function (response: any) {
+        setErrorMessage(response?.error?.description || "Payment failed. Please try again.");
+        setIsSubmitting(false);
+      });
+      rzp.open();
+    } catch (err: any) {
+      console.error("Drawer checkout error:", err);
+      setErrorMessage(err.message || "Checkout failed. Please try again.");
+      setIsSubmitting(false);
+    }
+  };
   return (
     <BladeRoot>
       <Drawer isOpen={isOpen} onDismiss={onDismiss}>

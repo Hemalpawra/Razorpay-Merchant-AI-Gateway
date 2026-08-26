@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     if (!cleanMessage) return Response.json({ error: 'A message is required.' }, { status: 400 });
 
     const supabase = await createClient();
-    const { data: products } = await supabase.from('products').select('sku,name,category,price,stock_qty,description').eq('status', 'active').limit(100);
+    const { data: products } = await supabase.from('products').select('sku,name,category,price,stock_qty,description,image_url').eq('status', 'active').limit(100);
     const catalog = (products ?? []).map((product: any) => `${product.name} | SKU: ${product.sku} | ${product.category} | ₹${product.price} | stock: ${product.stock_qty ?? 0} | ${product.description ?? ''}`).join('\n');
 
     const result = streamText({
