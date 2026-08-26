@@ -357,7 +357,7 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
                       ) : undefined
                     }
                   >
-                    <Text size="small" whiteSpace="pre-line">
+                    <Text size="small">
                       {msg.text}
                     </Text>
                   </BladeChatMessage>
