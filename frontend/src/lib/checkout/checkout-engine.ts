@@ -1,6 +1,10 @@
-import { createClient } from '@/utils/supabase/server';
-import { createRazorpayOrder, verifyRazorpaySignature, RAZORPAY_KEY_ID } from '@/lib/razorpay';
-import { MerchantAuditService } from '@/utils/audit';
+import { createClient } from "@/utils/supabase/server";
+import {
+  createRazorpayOrder,
+  verifyRazorpaySignature,
+  RAZORPAY_KEY_ID,
+} from "@/lib/razorpay";
+import { MerchantAuditService } from "@/utils/audit";
 
 export interface CreateOrderParams {
   currency?: string;
@@ -8,7 +12,7 @@ export interface CreateOrderParams {
   session_id?: string;
   customer?: any;
   items?: Array<{ sku: string; qty: number }>;
-  shipping_method?: 'standard' | 'express';
+  shipping_method?: "standard" | "express";
 }
 
 const SHIPPING_METHODS: Record<string, number> = {
@@ -33,24 +37,31 @@ export class OrderCheckoutEngine {
    * Create a new Razorpay checkout order and record it in Supabase DB
    */
   static async createCheckoutSession(params: CreateOrderParams) {
-    const { currency = 'INR', merchant_id, session_id, customer, items = [], shipping_method = 'standard' } = params;
+    const {
+      currency = "INR",
+      merchant_id,
+      session_id,
+      customer,
+      items = [],
+      shipping_method = "standard",
+    } = params;
 
     if (!Array.isArray(items) || items.length === 0) {
-      throw new Error('Cart is empty');
+      throw new Error("Cart is empty");
     }
     if (items.length > MAX_LINES_PER_ORDER) {
-      throw new Error('Too many distinct items in this order');
+      throw new Error("Too many distinct items in this order");
     }
     if (!(shipping_method in SHIPPING_METHODS)) {
-      throw new Error('Invalid shipping method');
+      throw new Error("Invalid shipping method");
     }
 
     // Normalize and validate quantities before trusting anything from the client.
     const requestedQtyBySku = new Map<string, number>();
     for (const raw of items) {
-      const sku = String(raw?.sku ?? '').trim();
+      const sku = String(raw?.sku ?? "").trim();
       const qty = Number(raw?.qty);
-      if (!sku) throw new Error('Every cart line must reference a product SKU');
+      if (!sku) throw new Error("Every cart line must reference a product SKU");
       if (!Number.isInteger(qty) || qty <= 0 || qty > MAX_QTY_PER_LINE) {
         throw new Error(`Invalid quantity for ${sku}`);
       }
@@ -59,22 +70,26 @@ export class OrderCheckoutEngine {
 
     const supabase = await createClient();
 
-    let finalMerchantId: string = merchant_id || '';
+    let finalMerchantId: string = merchant_id || "";
     if (!finalMerchantId) {
-      const { data: m } = await supabase.from('merchants').select('id').limit(1).single();
-      finalMerchantId = m?.id || '';
+      const { data: m } = await supabase
+        .from("merchants")
+        .select("id")
+        .limit(1)
+        .single();
+      finalMerchantId = m?.id || "";
     }
     if (!finalMerchantId) {
-      throw new Error('No merchant is configured for this store');
+      throw new Error("No merchant is configured for this store");
     }
 
     // Recompute the total from live, server-side product prices — never trust client-submitted prices.
     const skus = Array.from(requestedQtyBySku.keys());
     const { data: dbProducts, error: productsErr } = await supabase
-      .from('products')
-      .select('id, sku, name, image_url, price, status, stock_qty')
-      .eq('merchant_id', finalMerchantId)
-      .in('sku', skus);
+      .from("products")
+      .select("id, sku, name, image_url, price, status, stock_qty")
+      .eq("merchant_id", finalMerchantId)
+      .in("sku", skus);
 
     if (productsErr) {
       throw new Error(`Could not verify cart items: ${productsErr.message}`);
@@ -90,7 +105,9 @@ export class OrderCheckoutEngine {
       stock_qty: number;
     };
     const productRows = (dbProducts ?? []) as unknown as DbProductRow[];
-    const productBySku = new Map<string, DbProductRow>(productRows.map((p) => [p.sku, p]));
+    const productBySku = new Map<string, DbProductRow>(
+      productRows.map((p) => [p.sku, p]),
+    );
     let subtotal = 0;
     const orderLineItems: Array<{
       product_id: string;
@@ -103,7 +120,7 @@ export class OrderCheckoutEngine {
     }> = [];
     for (const [sku, qty] of requestedQtyBySku.entries()) {
       const product = productBySku.get(sku);
-      if (!product || product.status !== 'active') {
+      if (!product || product.status !== "active") {
         throw new Error(`Product ${sku} is no longer available`);
       }
       if (Number(product.stock_qty ?? 0) < qty) {
@@ -127,7 +144,7 @@ export class OrderCheckoutEngine {
     const amount = Math.round((subtotal + shippingFee + tax) * 100) / 100;
 
     if (amount <= 0) {
-      throw new Error('Valid checkout amount is required');
+      throw new Error("Valid checkout amount is required");
     }
 
     const amountInPaise = Math.round(amount * 100);
@@ -138,13 +155,13 @@ export class OrderCheckoutEngine {
       receipt: `rcpt_${Date.now()}`,
       notes: {
         merchant_id: finalMerchantId,
-        session_id: session_id || '',
-        item_count: String(items.length)
-      }
+        session_id: session_id || "",
+        item_count: String(items.length),
+      },
     });
 
-    const { data: dbOrder } = await supabase
-      .from('orders')
+    const { data: dbOrder, error: orderInsertError } = await supabase
+      .from("orders")
       .insert({
         merchant_id: finalMerchantId,
         session_id: session_id || null,
@@ -154,39 +171,53 @@ export class OrderCheckoutEngine {
         tax_amount: tax,
         shipping_amount: shippingFee,
         currency,
-        status: 'draft',
-        checkout_url: '/store/checkout'
+        status: "draft",
+        checkout_url: "/store/checkout",
       })
-      .select('*')
+      .select("*")
       .single();
 
-    if (dbOrder) {
-      await supabase.from('order_items').insert(
-        orderLineItems.map((item) => ({
-          order_id: dbOrder.id,
-          product_id: item.product_id,
-          sku: item.sku,
-          name: item.name,
-          image_url: item.image_url,
-          unit_price: item.unit_price,
-          qty: item.qty,
-          line_total: item.line_total,
-        }))
+    if (orderInsertError || !dbOrder) {
+      throw new Error(
+        `Could not persist order: ${orderInsertError?.message || "unknown database error"}`,
       );
     }
 
-    if (dbOrder && customer) {
-      await supabase.from('customer_details').insert({
+    {
+      const { error: itemInsertError } = await supabase
+        .from("order_items")
+        .insert(
+          orderLineItems.map((item) => ({
+            order_id: dbOrder.id,
+            product_id: item.product_id,
+            sku: item.sku,
+            name: item.name,
+            image_url: item.image_url,
+            unit_price: item.unit_price,
+            qty: item.qty,
+            line_total: item.line_total,
+          })),
+        );
+      if (itemInsertError) {
+        await supabase.from("orders").delete().eq("id", dbOrder.id);
+        throw new Error(
+          `Could not persist order items: ${itemInsertError.message}`,
+        );
+      }
+    }
+
+    if (customer) {
+      await supabase.from("customer_details").insert({
         session_id: session_id || null,
-        full_name: customer.full_name || customer.name || 'Customer',
+        full_name: customer.full_name || customer.name || "Customer",
         email: customer.email,
         phone: customer.phone,
         shipping_address_line1: customer.line1 || customer.address,
         city: customer.city,
         state: customer.state,
         pincode: customer.pincode,
-        country: customer.country || 'India',
-        payment_mode: customer.payment_mode || 'UPI'
+        country: customer.country || "India",
+        payment_mode: customer.payment_mode || "UPI",
       });
     }
 
@@ -196,12 +227,12 @@ export class OrderCheckoutEngine {
         merchant_id: finalMerchantId,
         session_id: session_id || undefined,
         order_id: dbOrder?.id || undefined,
-        actor_type: 'customer',
-        event_type: 'checkout_initiated',
-        title: 'Razorpay Checkout Initiated',
+        actor_type: "customer",
+        event_type: "checkout_initiated",
+        title: "Razorpay Checkout Initiated",
         description: `Order created for ₹${amount} (Razorpay ID: ${razorpayOrder.id})`,
-        result: 'success',
-        meta_json: { razorpay_order_id: razorpayOrder.id, amount, currency }
+        result: "success",
+        meta_json: { razorpay_order_id: razorpayOrder.id, amount, currency },
       });
     }
 
@@ -211,7 +242,7 @@ export class OrderCheckoutEngine {
       razorpay_order_id: razorpayOrder.id,
       db_order_id: dbOrder?.id,
       amount: amountInPaise,
-      currency
+      currency,
     };
   }
 
@@ -219,69 +250,77 @@ export class OrderCheckoutEngine {
    * Verify Razorpay payment signature, mark order as paid, and issue an official Invoice
    */
   static async verifyPaymentSession(params: VerifyPaymentParams) {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, db_order_id, customer } = params;
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      db_order_id,
+      customer,
+    } = params;
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-      throw new Error('Missing required Razorpay payment verification fields');
+      throw new Error("Missing required Razorpay payment verification fields");
     }
 
     const isValid = verifyRazorpaySignature({
       order_id: razorpay_order_id,
       payment_id: razorpay_payment_id,
-      signature: razorpay_signature
+      signature: razorpay_signature,
     });
 
     if (!isValid) {
-      throw new Error('Invalid Razorpay payment signature');
+      throw new Error("Invalid Razorpay payment signature");
     }
 
     const supabase = await createClient();
 
     // Fetch the existing order first so we can detect an already-processed payment
     // and avoid double-decrementing stock or issuing a duplicate invoice.
-    let existingQuery = supabase.from('orders').select('*');
+    let existingQuery = supabase.from("orders").select("*");
     existingQuery = db_order_id
-      ? existingQuery.eq('id', db_order_id)
-      : existingQuery.eq('razorpay_order_id', razorpay_order_id);
+      ? existingQuery.eq("id", db_order_id)
+      : existingQuery.eq("razorpay_order_id", razorpay_order_id);
     const { data: existingOrder } = await existingQuery.single();
 
     if (!existingOrder) {
-      throw new Error('Order not found');
+      throw new Error("Order not found");
     }
 
-    if (existingOrder.status === 'paid') {
+    if (existingOrder.status === "paid") {
       const { data: existingInvoice } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('order_id', existingOrder.id)
+        .from("invoices")
+        .select("*")
+        .eq("order_id", existingOrder.id)
         .maybeSingle();
       return {
         success: true,
-        message: 'Payment already verified for this order.',
+        message: "Payment already verified for this order.",
         order: existingOrder,
-        invoice: existingInvoice ?? null
+        invoice: existingInvoice ?? null,
       };
     }
 
-    let query = supabase.from('orders').update({
-      status: 'paid',
+    let query = supabase.from("orders").update({
+      status: "paid",
       razorpay_payment_id,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     });
 
     if (db_order_id) {
-      query = query.eq('id', db_order_id);
+      query = query.eq("id", db_order_id);
     } else {
-      query = query.eq('razorpay_order_id', razorpay_order_id);
+      query = query.eq("razorpay_order_id", razorpay_order_id);
     }
 
-    const { data: updatedOrder, error: orderErr } = await query.select('*').single();
+    const { data: updatedOrder, error: orderErr } = await query
+      .select("*")
+      .single();
     if (orderErr) {
-      console.error('Error updating order status:', orderErr.message);
+      console.error("Error updating order status:", orderErr.message);
     }
 
     if (customer && updatedOrder?.session_id) {
-      await supabase.from('customer_details').upsert({
+      await supabase.from("customer_details").upsert({
         session_id: updatedOrder.session_id,
         full_name: customer.full_name || customer.name,
         email: customer.email,
@@ -290,29 +329,34 @@ export class OrderCheckoutEngine {
         city: customer.city,
         state: customer.state,
         pincode: customer.pincode,
-        payment_mode: customer.payment_mode || 'UPI'
+        payment_mode: customer.payment_mode || "UPI",
       });
     }
 
     // Decrement stock for purchased items now that payment is confirmed.
     if (updatedOrder) {
       const { data: purchasedItems } = await supabase
-        .from('order_items')
-        .select('product_id, qty')
-        .eq('order_id', updatedOrder.id);
+        .from("order_items")
+        .select("product_id, qty")
+        .eq("order_id", updatedOrder.id);
 
       for (const item of purchasedItems ?? []) {
         if (!item.product_id) continue;
         const { data: product } = await supabase
-          .from('products')
-          .select('stock_qty')
-          .eq('id', item.product_id)
+          .from("products")
+          .select("stock_qty")
+          .eq("id", item.product_id)
           .single();
         if (product) {
           await supabase
-            .from('products')
-            .update({ stock_qty: Math.max(0, Number(product.stock_qty) - Number(item.qty)) })
-            .eq('id', item.product_id);
+            .from("products")
+            .update({
+              stock_qty: Math.max(
+                0,
+                Number(product.stock_qty) - Number(item.qty),
+              ),
+            })
+            .eq("id", item.product_id);
         }
       }
     }
@@ -324,27 +368,29 @@ export class OrderCheckoutEngine {
       const subtotal = Number(updatedOrder.subtotal) || 0;
       const taxAmount = Number(updatedOrder.tax_amount) || 0;
       const shippingAmount = Number(updatedOrder.shipping_amount) || 0;
-      const grandTotal = Number(updatedOrder.amount) || Math.round((subtotal + taxAmount + shippingAmount) * 100) / 100;
+      const grandTotal =
+        Number(updatedOrder.amount) ||
+        Math.round((subtotal + taxAmount + shippingAmount) * 100) / 100;
 
       const generatedInvoice = {
         invoice_number: invoiceNumber,
         order_id: updatedOrder.id,
         merchant_id: updatedOrder.merchant_id,
-        customer_name: customer?.full_name || customer?.name || 'Customer',
-        customer_email: customer?.email || 'customer@example.com',
+        customer_name: customer?.full_name || customer?.name || "Customer",
+        customer_email: customer?.email || "customer@example.com",
         subtotal,
         tax_amount: taxAmount,
         discount_amount: 0,
         grand_total: grandTotal,
-        currency: updatedOrder.currency || 'INR',
-        status: 'issued'
+        currency: updatedOrder.currency || "INR",
+        status: "issued",
       };
 
       try {
         const { data: newInv, error: invErr } = await supabase
-          .from('invoices')
+          .from("invoices")
           .insert(generatedInvoice)
-          .select('*')
+          .select("*")
           .single();
 
         if (!invErr && newInv) {
@@ -362,15 +408,15 @@ export class OrderCheckoutEngine {
         supabase,
         updatedOrder.merchant_id,
         updatedOrder.id,
-        razorpay_payment_id
+        razorpay_payment_id,
       );
     }
 
     return {
       success: true,
-      message: 'Payment verified and official order invoice generated!',
+      message: "Payment verified and official order invoice generated!",
       order: updatedOrder,
-      invoice: invoiceData
+      invoice: invoiceData,
     };
   }
 }
