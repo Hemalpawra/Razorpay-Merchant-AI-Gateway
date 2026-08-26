@@ -314,6 +314,8 @@ export class OrderCheckoutEngine {
     let query = supabase.from("orders").update({
       status: "paid",
       razorpay_payment_id,
+      razorpay_payment_signature: razorpay_signature,
+      razorpay_payment_json: { razorpay_order_id, razorpay_payment_id, razorpay_signature },
       updated_at: new Date().toISOString(),
     });
 
@@ -333,7 +335,8 @@ export class OrderCheckoutEngine {
     if (customer) {
       const { error: customerError } = await supabase
         .from("customer_details")
-        .update({
+        .upsert({
+          order_id: updatedOrder.id,
           session_id: updatedOrder.session_id,
           full_name: customer.full_name || customer.name || "Customer",
           email: customer.email,
@@ -344,8 +347,7 @@ export class OrderCheckoutEngine {
           pincode: customer.pincode,
           payment_mode: customer.payment_mode || "UPI",
           updated_at: new Date().toISOString(),
-        })
-        .eq("order_id", updatedOrder.id);
+        }, { onConflict: "order_id" });
       if (customerError) {
         throw new Error(`Could not update customer details: ${customerError.message}`);
       }
@@ -407,7 +409,7 @@ export class OrderCheckoutEngine {
       try {
         const { data: newInv, error: invErr } = await supabase
           .from("invoices")
-          .insert(generatedInvoice)
+          .upsert(generatedInvoice, { onConflict: "order_id" })
           .select("*")
           .single();
 

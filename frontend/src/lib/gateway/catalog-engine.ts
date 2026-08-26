@@ -60,6 +60,8 @@ export class CatalogGatewayEngine {
         .from("buyer_sessions")
         .insert({
           merchant_id,
+          external_ai_name: mode === "agent_to_agent" ? "External Buyer AI" : "Customer",
+          buyer_request_text: cleanMessage,
           channel: mode === "agent_to_agent" ? "agent_to_agent" : "storefront",
           customer_query: cleanMessage,
           status: "active",
@@ -70,6 +72,14 @@ export class CatalogGatewayEngine {
       if (!sessErr && sess) {
         activeSessionId = sess.id;
       }
+    }
+
+    if (activeSessionId) {
+      const { error: sessionUpdateError } = await supabase
+        .from("buyer_sessions")
+        .update({ customer_query: cleanMessage, buyer_request_text: cleanMessage, updated_at: new Date().toISOString() })
+        .eq("id", activeSessionId);
+      if (sessionUpdateError) throw new Error(`Could not persist AI session: ${sessionUpdateError.message}`);
     }
 
     // Log request audit event
@@ -212,19 +222,21 @@ Instructions:
       }
     }
 
+    if (!isGreeting && replyText.length > 700) {
+      replyText = `${replyText.slice(0, 697).trimEnd()}…`;
+    }
+
     if (activeSessionId) {
-      await supabase.from("ai_conversation_messages").insert([
+      const { error: messageError } = await supabase.from("ai_conversation_messages").insert([
         { session_id: activeSessionId, role: "user", content: cleanMessage },
-        {
-          session_id: activeSessionId,
-          role: "assistant",
-          content: replyText,
-          meta_json: {
-            model_used: modelUsed,
-            matched_count: matchedProducts.length,
-          },
-        },
+        { session_id: activeSessionId, role: "assistant", content: replyText, meta_json: { model_used: modelUsed, matched_count: matchedProducts.length } },
       ]);
+      if (messageError) throw new Error(`Could not persist AI conversation: ${messageError.message}`);
+    }
+
+    if (activeSessionId) {
+      const matches = matchedProducts.map((product, index) => ({ session_id: activeSessionId, product_id: product.id, rank: index + 1, match_score: null, reason_text: "Matched from customer request" }));
+      if (matches.length) await supabase.from("product_matches").upsert(matches, { onConflict: "session_id,product_id" });
     }
 
     if (!isGreeting && replyText.length > 700) {
