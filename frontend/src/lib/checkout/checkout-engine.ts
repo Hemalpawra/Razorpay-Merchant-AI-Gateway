@@ -207,18 +207,26 @@ export class OrderCheckoutEngine {
     }
 
     if (customer) {
-      await supabase.from("customer_details").insert({
-        session_id: session_id || null,
-        full_name: customer.full_name || customer.name || "Customer",
-        email: customer.email,
-        phone: customer.phone,
-        shipping_address_line1: customer.line1 || customer.address,
-        city: customer.city,
-        state: customer.state,
-        pincode: customer.pincode,
-        country: customer.country || "India",
-        payment_mode: customer.payment_mode || "UPI",
-      });
+      const { error: customerError } = await supabase
+        .from("customer_details")
+        .insert({
+          order_id: dbOrder.id,
+          session_id: session_id || null,
+          full_name: customer.full_name || customer.name || "Customer",
+          email: customer.email,
+          phone: customer.phone,
+          shipping_address_line1: customer.line1 || customer.address,
+          city: customer.city,
+          state: customer.state,
+          pincode: customer.pincode,
+          country: customer.country || "India",
+          payment_mode: customer.payment_mode || "UPI",
+        });
+      if (customerError) {
+        await supabase.from("order_items").delete().eq("order_id", dbOrder.id);
+        await supabase.from("orders").delete().eq("id", dbOrder.id);
+        throw new Error(`Could not persist customer details: ${customerError.message}`);
+      }
     }
 
     if (finalMerchantId) {
@@ -280,10 +288,13 @@ export class OrderCheckoutEngine {
     existingQuery = db_order_id
       ? existingQuery.eq("id", db_order_id)
       : existingQuery.eq("razorpay_order_id", razorpay_order_id);
-    const { data: existingOrder } = await existingQuery.single();
+    const { data: existingOrder, error: existingOrderError } = await existingQuery.single();
 
-    if (!existingOrder) {
-      throw new Error("Order not found");
+    if (existingOrderError || !existingOrder) {
+      throw new Error(`Order not found for Razorpay order ${razorpay_order_id}`);
+    }
+    if (existingOrder.razorpay_order_id !== razorpay_order_id) {
+      throw new Error("Payment does not belong to this order");
     }
 
     if (existingOrder.status === "paid") {
@@ -315,22 +326,29 @@ export class OrderCheckoutEngine {
     const { data: updatedOrder, error: orderErr } = await query
       .select("*")
       .single();
-    if (orderErr) {
-      console.error("Error updating order status:", orderErr.message);
+    if (orderErr || !updatedOrder) {
+      throw new Error(`Could not mark order as paid: ${orderErr?.message || "order update returned no row"}`);
     }
 
-    if (customer && updatedOrder?.session_id) {
-      await supabase.from("customer_details").upsert({
-        session_id: updatedOrder.session_id,
-        full_name: customer.full_name || customer.name,
-        email: customer.email,
-        phone: customer.phone,
-        shipping_address_line1: customer.line1 || customer.address,
-        city: customer.city,
-        state: customer.state,
-        pincode: customer.pincode,
-        payment_mode: customer.payment_mode || "UPI",
-      });
+    if (customer) {
+      const { error: customerError } = await supabase
+        .from("customer_details")
+        .update({
+          session_id: updatedOrder.session_id,
+          full_name: customer.full_name || customer.name || "Customer",
+          email: customer.email,
+          phone: customer.phone,
+          shipping_address_line1: customer.line1 || customer.address,
+          city: customer.city,
+          state: customer.state,
+          pincode: customer.pincode,
+          payment_mode: customer.payment_mode || "UPI",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("order_id", updatedOrder.id);
+      if (customerError) {
+        throw new Error(`Could not update customer details: ${customerError.message}`);
+      }
     }
 
     // Decrement stock for purchased items now that payment is confirmed.
@@ -364,7 +382,7 @@ export class OrderCheckoutEngine {
     // Generate Official Attached Invoice using the totals recorded at order creation time.
     let invoiceData = null;
     if (updatedOrder) {
-      const invoiceNumber = `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const invoiceNumber = `INV-${new Date().getFullYear()}-${String(updatedOrder.id).replaceAll("-", "").slice(0, 12).toUpperCase()}`;
       const subtotal = Number(updatedOrder.subtotal) || 0;
       const taxAmount = Number(updatedOrder.tax_amount) || 0;
       const shippingAmount = Number(updatedOrder.shipping_amount) || 0;
@@ -393,13 +411,14 @@ export class OrderCheckoutEngine {
           .select("*")
           .single();
 
-        if (!invErr && newInv) {
-          invoiceData = newInv;
-        } else {
-          invoiceData = generatedInvoice;
+        if (invErr || !newInv) {
+          throw new Error(`Could not persist invoice: ${invErr?.message || "unknown database error"}`);
         }
-      } catch {
-        invoiceData = generatedInvoice;
+        invoiceData = newInv;
+      } catch (invoiceError) {
+        throw invoiceError instanceof Error
+          ? invoiceError
+          : new Error("Could not persist invoice");
       }
     }
 
