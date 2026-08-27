@@ -10,6 +10,8 @@ import {
   Card,
   CardBody,
   Divider,
+  Dropdown,
+  DropdownOverlay,
   Heading,
   IconButton,
   SparklesIcon,
@@ -136,7 +138,7 @@ function ConversationDrawer({
             auditEvents.map((event, index) => (
               <Box key={event.id} display="flex" gap="spacing.3" alignItems="flex-start">
                 <Box display="flex" flexDirection="column" alignItems="center">
-                  <Box width="8px" height="8px" borderRadius="round" backgroundColor={(event.result === 'success' ? 'feedback.background.positive.subtle' : event.result === 'failure' ? 'feedback.background.negative.subtle' : 'surface.background.primary.subtle') as any} />
+                  <Box width="8px" height="8px" borderRadius="round" backgroundColor={event.result === 'success' ? 'feedback.background.positive.subtle' : event.result === 'failure' ? 'feedback.background.negative.subtle' : 'surface.background.primary.subtle'} />
                   {index < auditEvents.length - 1 && <Box width="2px" height="spacing.6" backgroundColor="surface.background.gray.moderate" />}
                 </Box>
                 <Box display="flex" flexDirection="column" gap="spacing.1" paddingBottom={index < auditEvents.length - 1 ? 'spacing.3' : 'spacing.0'}>

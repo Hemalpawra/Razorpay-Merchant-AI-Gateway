@@ -171,10 +171,10 @@ export default function StoreHomePage() {
             <SectionHeader title="Shop by Category" action="View all categories" />
             <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
               {categories.map((c) => (
-                <div
+                <Link
                   key={c.slug}
-                  style={{ flex: 1, minWidth: "160px", maxWidth: "200px", cursor: "pointer" }}
-                  onClick={() => router.push(`/store/products?category=${c.slug}`)}
+                  href={`/store/products?category=${c.slug}`}
+                  style={{ flex: 1, minWidth: "160px", maxWidth: "200px", textDecoration: "none" }}
                 >
                   <Card elevation="lowRaised" padding="spacing.4">
                     <CardBody>
@@ -204,7 +204,7 @@ export default function StoreHomePage() {
                       </Box>
                     </CardBody>
                   </Card>
-                </div>
+                </Link>
               ))}
             </Box>
           </Box>
@@ -342,10 +342,10 @@ export default function StoreHomePage() {
             />
             <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
               {bestSellers.map((b, i) => (
-                <div
+                <Link
                   key={b.slug}
-                  style={{ flex: 1, minWidth: "200px", cursor: "pointer" }}
-                  onClick={() => router.push(`/store/products/${b.slug}`)}
+                  href={`/store/products/${b.slug}`}
+                  style={{ flex: 1, minWidth: "200px", textDecoration: "none" }}
                 >
                   <Card elevation="lowRaised" padding="spacing.3">
                     <CardBody>
@@ -400,7 +400,7 @@ export default function StoreHomePage() {
                       </Box>
                     </CardBody>
                   </Card>
-                </div>
+                </Link>
               ))}
             </Box>
           </Box>

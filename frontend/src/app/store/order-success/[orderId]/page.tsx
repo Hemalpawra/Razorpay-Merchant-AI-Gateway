@@ -237,9 +237,8 @@ export default function OrderSuccessPage() {
   return (
     <Box padding="spacing.8" display="flex" flexDirection="column" gap="spacing.6" maxWidth="800px" marginX="auto">
       {/* Success / Pending Hero */}
-      <Card elevation="none" backgroundColor={"surface.background.primary.subtle" as any}>
-        <CardBody>
-          <Box display="flex" flexDirection="column" alignItems="center" textAlign="center" padding="spacing.6" gap="spacing.3">
+      <Box backgroundColor="surface.background.primary.subtle" borderRadius="medium">
+        <Box display="flex" flexDirection="column" alignItems="center" textAlign="center" padding="spacing.6" gap="spacing.3">
             <Box
               width="48px" height="48px" borderRadius="round"
               backgroundColor="surface.background.sea.subtle"
@@ -261,8 +260,7 @@ export default function OrderSuccessPage() {
               {isPaid ? 'Razorpay Payment Verified' : order.status}
             </Badge>
           </Box>
-        </CardBody>
-      </Card>
+        </Box>
 
       {/* Details Grid */}
       <Box display="grid" gridTemplateColumns={{ base: '1fr', m: '1fr 1fr' }} gap="spacing.6">

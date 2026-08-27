@@ -225,24 +225,22 @@ export function AIChatWidget() {
                     {/* Order Created CTA */}
                     {m.orderCreated && (
                       <Box marginLeft="spacing.6" marginTop="spacing.1">
-                        <Card elevation="none" backgroundColor={"surface.background.primary.subtle" as any}>
-                          <CardBody>
-                            <Box display="flex" flexDirection="column" gap="spacing.2">
-                              <Box display="flex" alignItems="center" gap="spacing.2">
-                                <CheckCircleIcon size="small" color="interactive.icon.positive.normal" />
-                                <Text size="small" weight="semibold">Razorpay Order Ready</Text>
-                              </Box>
-                              <Text size="xsmall" color="surface.text.gray.muted">
-                                Order {m.orderCreated.orderId} created for {m.orderCreated.product} ({m.orderCreated.amount}).
-                              </Text>
-                              <Link href={`/store/checkout?orderId=${m.orderCreated.orderId}`} style={{ textDecoration: 'none' }}>
-                                <Button variant="primary" isFullWidth icon={ArrowRightIcon} iconPosition="right">
-                                  Proceed to Razorpay Checkout
-                                </Button>
-                              </Link>
+                        <Box backgroundColor="surface.background.primary.subtle" borderRadius="medium" padding="spacing.5">
+                          <Box display="flex" flexDirection="column" gap="spacing.2">
+                            <Box display="flex" alignItems="center" gap="spacing.2">
+                              <CheckCircleIcon size="small" color="interactive.icon.positive.normal" />
+                              <Text size="small" weight="semibold">Razorpay Order Ready</Text>
                             </Box>
-                          </CardBody>
-                        </Card>
+                            <Text size="xsmall" color="surface.text.gray.muted">
+                              Order {m.orderCreated.orderId} created for {m.orderCreated.product} ({m.orderCreated.amount}).
+                            </Text>
+                            <Link href={`/store/checkout?orderId=${m.orderCreated.orderId}`} style={{ textDecoration: 'none' }}>
+                              <Button variant="primary" isFullWidth icon={ArrowRightIcon} iconPosition="right">
+                                Proceed to Razorpay Checkout
+                              </Button>
+                            </Link>
+                          </Box>
+                        </Box>
                       </Box>
                     )}
                   </Box>

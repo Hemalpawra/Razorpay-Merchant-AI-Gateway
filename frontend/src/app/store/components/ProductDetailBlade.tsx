@@ -94,7 +94,7 @@ function RelatedCard({ item }: { item: Product }) {
   const router = useRouter();
   const off = discountPct(item);
   return (
-    <div style={{ flex: 1, minWidth: "180px", maxWidth: "220px", cursor: "pointer" }} onClick={() => router.push(`/store/products/${item.slug}`)}>
+    <Link href={`/store/products/${item.slug}`} style={{ flex: 1, minWidth: "180px", maxWidth: "220px", textDecoration: "none" }}>
       <Box
         borderWidth="thin"
         borderColor="surface.border.gray.muted"
@@ -145,11 +145,11 @@ function RelatedCard({ item }: { item: Product }) {
             />
           ) : null}
         </Box>
-        <Button variant="secondary" size="xsmall" icon={ShoppingCartIcon} isFullWidth onClick={(e) => { e.stopPropagation(); router.push('/store/cart'); }}>
+        <Button variant="secondary" size="xsmall" icon={ShoppingCartIcon} isFullWidth onClick={(e) => { e.preventDefault(); router.push('/store/cart'); }}>
           Add to Cart
         </Button>
       </Box>
-    </div>
+    </Link>
   );
 }
 

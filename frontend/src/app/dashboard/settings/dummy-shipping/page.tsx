@@ -25,17 +25,46 @@ import {
   ClockIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { useMerchantSettings } from '../use-merchant-settings';
 
 export default function DummyShippingPage() {
+  const { settings, merchant, loading, saving, error, savedNotice, saveSettings } = useMerchantSettings();
+
   const [shippingEnabled, setShippingEnabled] = useState(true);
   const [shippingTime, setShippingTime] = useState('2-3 Business Days');
   const [cutoffTime, setCutoffTime] = useState('04:00 PM');
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [businessDays, setBusinessDays] = useState('mon_sat');
 
-  const handleSave = () => {
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
+  const [savedLocal, setSavedLocal] = useState(false);
+
+  const didInit = React.useRef(false);
+  React.useEffect(() => {
+    if (didInit.current || !merchant) return;
+    didInit.current = true;
+    setShippingEnabled(settings.shipping_enabled ?? true);
+    setShippingTime(settings.shipping_time || '2-3 Business Days');
+    setCutoffTime(settings.cutoff_time || '04:00 PM');
+    setBusinessDays(settings.business_days || 'mon_sat');
+  }, [merchant, settings]);
+
+  const handleSave = async () => {
+    await saveSettings({
+      shipping_enabled: shippingEnabled,
+      shipping_time: shippingTime,
+      cutoff_time: cutoffTime,
+      business_days: businessDays,
+    });
+    setSavedLocal(true);
+    setTimeout(() => setSavedLocal(false), 3000);
   };
+
+  if (loading) {
+    return (
+      <Box padding="spacing.8" display="flex" justifyContent="center">
+        <Text size="small" color="surface.text.gray.subtle">Loading…</Text>
+      </Box>
+    );
+  }
 
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
@@ -61,21 +90,27 @@ export default function DummyShippingPage() {
           <Link href="/dashboard/settings" style={{ textDecoration: 'none' }}>
             <Button variant="tertiary">Cancel</Button>
           </Link>
-          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave}>
+          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave} isLoading={saving}>
             Save changes
           </Button>
         </Box>
       </Box>
 
-      {savedNotice && (
+      {(savedNotice || savedLocal) && (
         <Box marginBottom="spacing.6">
           <Alert
             title="Dummy Shipping Settings Saved"
             description="Your tracking timeline and shipment simulation parameters have been updated."
             color="positive"
             isDismissible
-            onDismiss={() => setSavedNotice(false)}
+            onDismiss={() => setSavedLocal(false)}
           />
+        </Box>
+      )}
+
+      {error && (
+        <Box marginBottom="spacing.6">
+          <Alert title="Error" description={error} color="negative" isDismissible />
         </Box>
       )}
 
@@ -133,12 +168,12 @@ export default function DummyShippingPage() {
                     onChange={({ value }) => setShippingTime(value || '')}
                   />
 
-                  <Dropdown>
-                    <SelectInput label="Business Days" placeholder="Monday - Saturday" />
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Business Days" placeholder="Monday - Saturday" value={businessDays} onChange={({ values }) => setBusinessDays(values[0])} />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="Monday - Saturday" value="mon_sat" onClick={() => {}} />
-                        <ActionListItem title="Monday - Friday" value="mon_fri" onClick={() => {}} />
+                        <ActionListItem title="Monday - Saturday" value="mon_sat" />
+                        <ActionListItem title="Monday - Friday" value="mon_fri" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>

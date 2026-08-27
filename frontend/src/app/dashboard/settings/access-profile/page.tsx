@@ -25,19 +25,49 @@ import {
   PlusIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { useMerchantSettings } from '../use-merchant-settings';
 
 export default function AccessProfilePage() {
+  const { settings, merchant, loading, saving, error, savedNotice, saveSettings } = useMerchantSettings();
+
   const [name, setName] = useState('Hemal');
   const [email, setEmail] = useState('hemal@gmail.com');
   const [mobile, setMobile] = useState('+91 98765 43210');
   const [twoFactor, setTwoFactor] = useState(true);
+  const [defaultDashboardView, setDefaultDashboardView] = useState('overview');
 
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [savedLocal, setSavedLocal] = useState(false);
 
-  const handleSave = () => {
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
+  const didInit = React.useRef(false);
+  React.useEffect(() => {
+    if (didInit.current || !merchant) return;
+    didInit.current = true;
+    setName(settings.profile_name || 'Hemal');
+    setEmail(settings.profile_email || 'hemal@gmail.com');
+    setMobile(settings.profile_mobile || '+91 98765 43210');
+    setTwoFactor(settings.two_factor ?? true);
+    setDefaultDashboardView(settings.default_dashboard_view || 'overview');
+  }, [merchant, settings]);
+
+  const handleSave = async () => {
+    await saveSettings({
+      profile_name: name,
+      profile_email: email,
+      profile_mobile: mobile,
+      two_factor: twoFactor,
+      default_dashboard_view: defaultDashboardView,
+    });
+    setSavedLocal(true);
+    setTimeout(() => setSavedLocal(false), 3000);
   };
+
+  if (loading) {
+    return (
+      <Box padding="spacing.8" display="flex" justifyContent="center">
+        <Text size="small" color="surface.text.gray.subtle">Loading…</Text>
+      </Box>
+    );
+  }
 
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
@@ -63,21 +93,27 @@ export default function AccessProfilePage() {
           <Link href="/dashboard/settings" style={{ textDecoration: 'none' }}>
             <Button variant="tertiary">Cancel</Button>
           </Link>
-          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave}>
+                  <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave} isLoading={saving}>
             Save changes
           </Button>
         </Box>
       </Box>
 
-      {savedNotice && (
+      {(savedNotice || savedLocal) && (
         <Box marginBottom="spacing.6">
           <Alert
             title="Profile & Access Settings Saved"
             description="Your personal information and security credentials have been updated."
             color="positive"
             isDismissible
-            onDismiss={() => setSavedNotice(false)}
+            onDismiss={() => setSavedLocal(false)}
           />
+        </Box>
+      )}
+
+      {error && (
+        <Box marginBottom="spacing.6">
+          <Alert title="Error" description={error} color="negative" isDismissible />
         </Box>
       )}
 
@@ -136,13 +172,13 @@ export default function AccessProfilePage() {
                     value={mobile}
                     onChange={({ value }) => setMobile(value || '')}
                   />
-                  <Dropdown>
-                    <SelectInput label="Default Dashboard View" placeholder="Overview" />
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Default Dashboard View" placeholder="Overview" value={defaultDashboardView} onChange={({ values }) => setDefaultDashboardView(values[0])} />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="Overview" value="overview" onClick={() => {}} />
-                        <ActionListItem title="AI Agent Workspace" value="ai_agent" onClick={() => {}} />
-                        <ActionListItem title="Orders" value="orders" onClick={() => {}} />
+                        <ActionListItem title="Overview" value="overview" />
+                        <ActionListItem title="AI Agent Workspace" value="ai_agent" />
+                        <ActionListItem title="Orders" value="orders" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>

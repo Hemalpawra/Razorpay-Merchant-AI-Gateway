@@ -5,6 +5,9 @@ import {
   Box,
   Text,
   Badge,
+  Drawer,
+  DrawerHeader,
+  DrawerBody,
   HomeIcon,
   PackageIcon,
   UploadIcon,
@@ -71,7 +74,7 @@ const NavSection = ({ label }: { label: string }) => (
   </Box>
 );
 
-export function Sidebar() {
+const SidebarContent = () => {
   const pathname = usePathname();
 
   const isActive = (path: string) => {
@@ -81,16 +84,11 @@ export function Sidebar() {
 
   return (
     <Box
-      width="220px"
-      height="100%"
-      backgroundColor="surface.background.gray.intense"
-      borderRightWidth="thin"
-      borderRightColor="surface.border.gray.muted"
-      padding="spacing.4"
       display="flex"
       flexDirection="column"
       justifyContent="space-between"
-      flexShrink={0}
+      height="100%"
+      padding="spacing.4"
     >
       <Box display="flex" flexDirection="column">
         <NavSection label="MERCHANT AI CORE" />
@@ -134,5 +132,32 @@ export function Sidebar() {
         </Link>
       </Box>
     </Box>
+  );
+};
+
+export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  return (
+    <>
+      {/* Static sidebar on large screens */}
+      <Box
+        display={{ base: 'none', m: 'none', l: 'flex' }}
+        width="220px"
+        height="100%"
+        backgroundColor="surface.background.gray.intense"
+        borderRightWidth="thin"
+        borderRightColor="surface.border.gray.muted"
+        flexShrink={0}
+      >
+        <SidebarContent />
+      </Box>
+
+      {/* Overlay drawer on small screens */}
+      <Drawer isOpen={isOpen} onDismiss={onClose} accessibilityLabel="Dashboard navigation">
+        <DrawerHeader title="Navigation" subtitle="Merchant AI Gateway" />
+        <DrawerBody>
+          <SidebarContent />
+        </DrawerBody>
+      </Drawer>
+    </>
   );
 }

@@ -19,21 +19,35 @@ import {
   ClockIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { useMerchantSettings } from '../use-merchant-settings';
+
+const DEFAULT_EVENTS = [
+  { name: 'New AI conversation', email: true, sms: false, inApp: true },
+  { name: 'Order created', email: true, sms: true, inApp: true },
+  { name: 'Payment failed', email: true, sms: true, inApp: true },
+  { name: 'Product low stock', email: true, sms: false, inApp: true },
+  { name: 'Order completed', email: true, sms: false, inApp: true },
+  { name: 'Human support requested', email: true, sms: true, inApp: true },
+  { name: 'Daily summary report', email: true, sms: false, inApp: false },
+];
 
 export default function NotificationsPage() {
-  const [savedNotice, setSavedNotice] = useState(false);
+  const { settings, merchant, loading, saving, error, savedNotice, saveSettings } = useMerchantSettings();
 
-  const [events, setEvents] = useState([
-    { name: 'New AI conversation', email: true, sms: false, inApp: true },
-    { name: 'Order created', email: true, sms: true, inApp: true },
-    { name: 'Payment failed', email: true, sms: true, inApp: true },
-    { name: 'Product low stock', email: true, sms: false, inApp: true },
-    { name: 'Order completed', email: true, sms: false, inApp: true },
-    { name: 'Human support requested', email: true, sms: true, inApp: true },
-    { name: 'Daily summary report', email: true, sms: false, inApp: false },
-  ]);
+  const [savedLocal, setSavedLocal] = useState(false);
 
+  const [events, setEvents] = useState(DEFAULT_EVENTS);
   const [quietHours, setQuietHours] = useState(true);
+
+  const didInit = React.useRef(false);
+  React.useEffect(() => {
+    if (didInit.current || !merchant) return;
+    didInit.current = true;
+    if (Array.isArray(settings.notification_events) && settings.notification_events.length) {
+      setEvents(settings.notification_events);
+    }
+    setQuietHours(settings.quiet_hours ?? true);
+  }, [merchant, settings]);
 
   const toggleEventChannel = (idx: number, channel: 'email' | 'sms' | 'inApp') => {
     const updated = [...events];
@@ -41,10 +55,19 @@ export default function NotificationsPage() {
     setEvents(updated);
   };
 
-  const handleSave = () => {
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
+  const handleSave = async () => {
+    await saveSettings({ notification_events: events, quiet_hours: quietHours });
+    setSavedLocal(true);
+    setTimeout(() => setSavedLocal(false), 3000);
   };
+
+  if (loading) {
+    return (
+      <Box padding="spacing.8" display="flex" justifyContent="center">
+        <Text size="small" color="surface.text.gray.subtle">Loading…</Text>
+      </Box>
+    );
+  }
 
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
@@ -70,21 +93,27 @@ export default function NotificationsPage() {
           <Link href="/dashboard/settings" style={{ textDecoration: 'none' }}>
             <Button variant="tertiary">Cancel</Button>
           </Link>
-          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave}>
+          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave} isLoading={saving}>
             Save changes
           </Button>
         </Box>
       </Box>
 
-      {savedNotice && (
+      {(savedNotice || savedLocal) && (
         <Box marginBottom="spacing.6">
           <Alert
             title="Notification Preferences Saved"
             description="Your notification matrix and alert delivery settings have been updated."
             color="positive"
             isDismissible
-            onDismiss={() => setSavedNotice(false)}
+            onDismiss={() => setSavedLocal(false)}
           />
+        </Box>
+      )}
+
+      {error && (
+        <Box marginBottom="spacing.6">
+          <Alert title="Error" description={error} color="negative" isDismissible />
         </Box>
       )}
 

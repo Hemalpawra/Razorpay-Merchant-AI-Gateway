@@ -269,8 +269,10 @@ function AuditTrailPageInner() {
       {/* Audit Logs Table */}
       <Card elevation="none" backgroundColor="surface.background.gray.intense">
         <CardBody>
+          <Box overflowX="auto">
           <Box 
             display="grid" 
+            minWidth="900px"
             gridTemplateColumns="1.5fr 2fr 1.2fr 1.2fr 1fr 1fr auto" 
             gap="spacing.4" 
             paddingY="spacing.3" 
@@ -293,7 +295,7 @@ function AuditTrailPageInner() {
           ) : visibleLogs.length === 0 ? (
             <Box padding="spacing.4"><Text size="small" color="surface.text.gray.muted">No audit events logged yet.</Text></Box>
           ) : (
-            <Box display="flex" flexDirection="column">
+            <Box display="flex" flexDirection="column" minWidth="900px">
               {visibleLogs.map((log, index) => (
                 <Box 
                   key={log.id}
@@ -328,6 +330,7 @@ function AuditTrailPageInner() {
               ))}
             </Box>
           )}
+          </Box>
         </CardBody>
       </Card>
 

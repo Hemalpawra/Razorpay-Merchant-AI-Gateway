@@ -24,27 +24,81 @@ import {
   SettingsIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { useMerchantSettings } from '../use-merchant-settings';
 
 export default function BusinessRulesPage() {
-  const [minOrder, setMinOrder] = useState('500');
-  const [maxOrder, setMaxOrder] = useState('500000');
-  const [orderPrefix, setOrderPrefix] = useState('ORD');
-  const [approvalThreshold, setApprovalThreshold] = useState('50000');
-  const [maxDiscount, setMaxDiscount] = useState('10');
-  const [taxRate, setTaxRate] = useState('18');
+  const { settings, merchant, loading, saving, error, savedNotice, saveSettings } = useMerchantSettings();
 
-  const [highValueApproval, setHighValueApproval] = useState(true);
-  const [manualReviewNew, setManualReviewNew] = useState(true);
-  const [allowDiscounts, setAllowDiscounts] = useState(true);
-  const [outOfStockOrder, setOutOfStockOrder] = useState(false);
-  const [backorder, setBackorder] = useState(false);
-  const [showStock, setShowStock] = useState(true);
+  const [minOrder, setMinOrder] = useState(settings.min_order || '500');
+  const [maxOrder, setMaxOrder] = useState(settings.max_order || '500000');
+  const [orderPrefix, setOrderPrefix] = useState(settings.order_prefix || 'ORD');
+  const [approvalThreshold, setApprovalThreshold] = useState(settings.approval_threshold || '50000');
+  const [maxDiscount, setMaxDiscount] = useState(settings.max_discount || '10');
+  const [taxRate, setTaxRate] = useState(settings.tax_rate || '18');
 
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [highValueApproval, setHighValueApproval] = useState(settings.high_value_approval ?? true);
+  const [manualReviewNew, setManualReviewNew] = useState(settings.manual_review_new ?? true);
+  const [allowDiscounts, setAllowDiscounts] = useState(settings.allow_discounts ?? true);
+  const [outOfStockOrder, setOutOfStockOrder] = useState(settings.out_of_stock_order ?? false);
+  const [backorder, setBackorder] = useState(settings.backorder ?? false);
+  const [showStock, setShowStock] = useState(settings.show_stock ?? true);
 
-  const handleSave = () => {
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
+  const [storeCurrency, setStoreCurrency] = useState(settings.store_currency || 'inr');
+  const [timezone, setTimezone] = useState(settings.timezone || 'ist');
+  const [dateFormat, setDateFormat] = useState(settings.date_format || 'dd_mmm_yyyy');
+  const [taxDisplay, setTaxDisplay] = useState(settings.tax_display || 'inclusive');
+  const [taxBasis, setTaxBasis] = useState(settings.tax_basis || 'total');
+  const [orderNumbering, setOrderNumbering] = useState(settings.order_numbering || 'auto');
+
+  const [localSaved, setLocalSaved] = useState(false);
+
+  const didInit = React.useRef(false);
+  React.useEffect(() => {
+    if (didInit.current || !merchant) return;
+    didInit.current = true;
+    setMinOrder(settings.min_order || '500');
+    setMaxOrder(settings.max_order || '500000');
+    setOrderPrefix(settings.order_prefix || 'ORD');
+    setApprovalThreshold(settings.approval_threshold || '50000');
+    setMaxDiscount(settings.max_discount || '10');
+    setTaxRate(settings.tax_rate || '18');
+    setHighValueApproval(settings.high_value_approval ?? true);
+    setManualReviewNew(settings.manual_review_new ?? true);
+    setAllowDiscounts(settings.allow_discounts ?? true);
+    setOutOfStockOrder(settings.out_of_stock_order ?? false);
+    setBackorder(settings.backorder ?? false);
+    setShowStock(settings.show_stock ?? true);
+    setStoreCurrency(settings.store_currency || 'inr');
+    setTimezone(settings.timezone || 'ist');
+    setDateFormat(settings.date_format || 'dd_mmm_yyyy');
+    setTaxDisplay(settings.tax_display || 'inclusive');
+    setTaxBasis(settings.tax_basis || 'total');
+    setOrderNumbering(settings.order_numbering || 'auto');
+  }, [merchant, settings]);
+
+  const handleSave = async () => {
+    await saveSettings({
+      min_order: minOrder,
+      max_order: maxOrder,
+      order_prefix: orderPrefix,
+      approval_threshold: approvalThreshold,
+      max_discount: maxDiscount,
+      tax_rate: taxRate,
+      high_value_approval: highValueApproval,
+      manual_review_new: manualReviewNew,
+      allow_discounts: allowDiscounts,
+      out_of_stock_order: outOfStockOrder,
+      backorder,
+      show_stock: showStock,
+      store_currency: storeCurrency,
+      timezone,
+      date_format: dateFormat,
+      tax_display: taxDisplay,
+      tax_basis: taxBasis,
+      order_numbering: orderNumbering,
+    });
+    setLocalSaved(true);
+    setTimeout(() => setLocalSaved(false), 3000);
   };
 
   return (
@@ -71,21 +125,27 @@ export default function BusinessRulesPage() {
           <Link href="/dashboard/settings" style={{ textDecoration: 'none' }}>
             <Button variant="tertiary">Cancel</Button>
           </Link>
-          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave}>
+          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave} isLoading={saving}>
             Save changes
           </Button>
         </Box>
       </Box>
 
-      {savedNotice && (
+      {(savedNotice || localSaved) && (
         <Box marginBottom="spacing.6">
           <Alert
             title="Business Rules Saved"
             description="Your store currency, tax, and order policy rules have been updated."
             color="positive"
             isDismissible
-            onDismiss={() => setSavedNotice(false)}
+            onDismiss={() => setLocalSaved(false)}
           />
+        </Box>
+      )}
+
+      {error && (
+        <Box marginBottom="spacing.6">
+          <Alert title="Error" description={error} color="negative" isDismissible />
         </Box>
       )}
 
@@ -147,32 +207,32 @@ export default function BusinessRulesPage() {
                 <Text size="xsmall" color="surface.text.gray.subtle">Basic business information that affects orders and transactions.</Text>
 
                 <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(3,1fr)' }} gap="spacing.4" borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3">
-                  <Dropdown>
-                    <SelectInput label="Store currency" placeholder="INR (₹) - Indian Rupee" />
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Store currency" placeholder="INR (₹) - Indian Rupee" value={storeCurrency} onChange={({ values }) => setStoreCurrency(values[0])} />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="INR (₹) - Indian Rupee" value="inr" onClick={() => {}} />
-                        <ActionListItem title="USD ($) - US Dollar" value="usd" onClick={() => {}} />
+                        <ActionListItem title="INR (₹) - Indian Rupee" value="inr" />
+                        <ActionListItem title="USD ($) - US Dollar" value="usd" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>
 
-                  <Dropdown>
-                    <SelectInput label="Timezone" placeholder="Asia/Kolkata (IST)" />
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Timezone" placeholder="Asia/Kolkata (IST)" value={timezone} onChange={({ values }) => setTimezone(values[0])} />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="Asia/Kolkata (IST)" value="ist" onClick={() => {}} />
-                        <ActionListItem title="UTC" value="utc" onClick={() => {}} />
+                        <ActionListItem title="Asia/Kolkata (IST)" value="ist" />
+                        <ActionListItem title="UTC" value="utc" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>
 
-                  <Dropdown>
-                    <SelectInput label="Date format" placeholder="DD MMM YYYY" />
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Date format" placeholder="DD MMM YYYY" value={dateFormat} onChange={({ values }) => setDateFormat(values[0])} />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="DD MMM YYYY" value="dd_mmm_yyyy" onClick={() => {}} />
-                        <ActionListItem title="YYYY-MM-DD" value="iso" onClick={() => {}} />
+                        <ActionListItem title="DD MMM YYYY" value="dd_mmm_yyyy" />
+                        <ActionListItem title="YYYY-MM-DD" value="iso" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>
@@ -189,12 +249,12 @@ export default function BusinessRulesPage() {
                 <Text size="xsmall" color="surface.text.gray.subtle">Configure tax display and calculation behaviour.</Text>
 
                 <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(3,1fr)' }} gap="spacing.4" borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3">
-                  <Dropdown>
-                    <SelectInput label="Tax display in store" placeholder="Inclusive of tax" />
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Tax display in store" placeholder="Inclusive of tax" value={taxDisplay} onChange={({ values }) => setTaxDisplay(values[0])} />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="Inclusive of tax" value="inclusive" onClick={() => {}} />
-                        <ActionListItem title="Exclusive of tax" value="exclusive" onClick={() => {}} />
+                        <ActionListItem title="Inclusive of tax" value="inclusive" />
+                        <ActionListItem title="Exclusive of tax" value="exclusive" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>
@@ -205,12 +265,12 @@ export default function BusinessRulesPage() {
                     onChange={({ value }) => setTaxRate(value || '')}
                   />
 
-                  <Dropdown>
-                    <SelectInput label="Tax calculation basis" placeholder="On order total" />
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Tax calculation basis" placeholder="On order total" value={taxBasis} onChange={({ values }) => setTaxBasis(values[0])} />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="On order total" value="total" onClick={() => {}} />
-                        <ActionListItem title="Per item" value="item" onClick={() => {}} />
+                        <ActionListItem title="On order total" value="total" />
+                        <ActionListItem title="Per item" value="item" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>
@@ -237,12 +297,12 @@ export default function BusinessRulesPage() {
                     value={maxOrder}
                     onChange={({ value }) => setMaxOrder(value || '')}
                   />
-                  <Dropdown>
-                    <SelectInput label="Order numbering" placeholder="Auto (ORD-10001...)" />
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Order numbering" placeholder="Auto (ORD-10001...)" value={orderNumbering} onChange={({ values }) => setOrderNumbering(values[0])} />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="Auto (ORD-10001...)" value="auto" onClick={() => {}} />
-                        <ActionListItem title="Custom Format" value="custom" onClick={() => {}} />
+                        <ActionListItem title="Auto (ORD-10001...)" value="auto" />
+                        <ActionListItem title="Custom Format" value="custom" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>

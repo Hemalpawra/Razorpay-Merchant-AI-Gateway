@@ -74,7 +74,7 @@ export default function CheckoutBlade() {
   const [payMethod, setPayMethod] = useState("upi");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { lines: cartItems } = useStoreCart();
+  const { lines: cartItems, clearCart } = useStoreCart();
   const { sessionId } = useAiChat();
 
   const setField = (key: keyof Address) => (value: string) => setAddress((prev) => ({ ...prev, [key]: value }));
@@ -172,6 +172,7 @@ export default function CheckoutBlade() {
               return;
             }
             setIsSubmitting(false);
+            clearCart();
             router.push(`/store/order-success/${data.db_order_id || data.razorpay_order_id}`);
           } catch (err: any) {
             setErrorMessage(err.message || "Payment verification failed.");
@@ -251,6 +252,7 @@ export default function CheckoutBlade() {
                       <Box flex="1" minWidth="240px">
                         <TextInput
                           label="Phone number"
+                          type="telephone"
                           value={address.phone}
                           onChange={({ value }) => setField("phone")(value ?? "")}
                           necessityIndicator="required"

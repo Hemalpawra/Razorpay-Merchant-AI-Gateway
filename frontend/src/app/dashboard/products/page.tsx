@@ -8,6 +8,7 @@ import {
   Button, 
   Card, 
   CardBody, 
+  Skeleton,
   Tabs, 
   TabItem, 
   PackageIcon,
@@ -155,7 +156,7 @@ export default function ProductsPage() {
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" alignItems="center" gap="spacing.4">
-                <Box width="40px" height="40px" borderRadius="medium" backgroundColor={"surface.background.sea.subtle" as any} display="flex" alignItems="center" justifyContent="center">
+                <Box width="40px" height="40px" borderRadius="medium" backgroundColor="surface.background.sea.subtle" display="flex" alignItems="center" justifyContent="center">
                   <CheckCircleIcon size="medium" color="interactive.icon.positive.normal" />
                 </Box>
                 <Box>
@@ -170,7 +171,7 @@ export default function ProductsPage() {
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" alignItems="center" gap="spacing.4">
-                <Box width="40px" height="40px" borderRadius="medium" backgroundColor={"surface.background.cloud.subtle" as any} display="flex" alignItems="center" justifyContent="center">
+                <Box width="40px" height="40px" borderRadius="medium" backgroundColor="surface.background.cloud.subtle" display="flex" alignItems="center" justifyContent="center">
                   <AlertCircleIcon size="medium" color="interactive.icon.negative.normal" />
                 </Box>
                 <Box>
@@ -185,7 +186,7 @@ export default function ProductsPage() {
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" alignItems="center" gap="spacing.4">
-                <Box width="40px" height="40px" borderRadius="medium" backgroundColor={"surface.background.cloud.subtle" as any} display="flex" alignItems="center" justifyContent="center">
+                <Box width="40px" height="40px" borderRadius="medium" backgroundColor="surface.background.cloud.subtle" display="flex" alignItems="center" justifyContent="center">
                   <AlertCircleIcon size="medium" color="interactive.icon.notice.normal" />
                 </Box>
                 <Box>
@@ -212,7 +213,15 @@ export default function ProductsPage() {
 
         {/* Product Grid */}
         {isLoading ? (
-          <Text size="small" color="surface.text.gray.muted">Loading products from Supabase DB...</Text>
+          <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2, 1fr)', l: 'repeat(4, 1fr)' }} gap="spacing.4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} elevation="none" backgroundColor="surface.background.gray.intense">
+                <CardBody>
+                  <Skeleton height="120px" />
+                </CardBody>
+              </Card>
+            ))}
+          </Box>
         ) : filteredProducts.length === 0 ? (
           <Card elevation="none">
             <CardBody>

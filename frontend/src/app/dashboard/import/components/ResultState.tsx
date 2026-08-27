@@ -15,6 +15,13 @@ import {
   Text,
 } from "@razorpay/blade/components";
 
+const BADGE_COLOR = {
+  neutral: 'neutral',
+  positive: 'positive',
+  negative: 'negative',
+  notice: 'notice',
+} as const;
+
 export type ImportIssue = { row: number; message: string; sku?: string };
 export type ImportSummary = {
   filename?: string;
@@ -76,7 +83,7 @@ export function ResultState({
                   <Text size="small" color="surface.text.gray.subtle">
                     {label}
                   </Text>
-                  <Badge color={color as any} size="small">
+                  <Badge color={BADGE_COLOR[color as keyof typeof BADGE_COLOR]} size="small">
                     {label === "Issues" && !hasIssues
                       ? "Clear"
                       : label === "Products imported"

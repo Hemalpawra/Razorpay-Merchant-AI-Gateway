@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   Heading,
@@ -17,39 +17,87 @@ import {
   ActionListItem,
   Checkbox,
   Alert,
-  // Icons
+  Spinner,
   ChevronRightIcon,
   SaveIcon,
   SparklesIcon,
   InfoIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { useMerchantSettings } from '../use-merchant-settings';
 
 export default function AIDefaultsPage() {
-  const [aiEnabled, setAiEnabled] = useState(true);
-  const [askAddress, setAskAddress] = useState(true);
-  const [askEmail, setAskEmail] = useState(true);
-  const [askPhone, setAskPhone] = useState(true);
-  const [askPaymentConfirm, setAskPaymentConfirm] = useState(true);
-  const [askNotes, setAskNotes] = useState(false);
-  const [enableUpsell, setEnableUpsell] = useState(true);
-  const [enableCrossSell, setEnableCrossSell] = useState(true);
-  const [showComparisons, setShowComparisons] = useState(false);
-  const [highlightOffers, setHighlightOffers] = useState(true);
-  const [autoCreateOrder, setAutoCreateOrder] = useState(true);
-  const [autoCapturePayment, setAutoCapturePayment] = useState(false);
+  const { settings, merchant, loading, saving, error, savedNotice, saveSettings } = useMerchantSettings();
 
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [aiEnabled, setAiEnabled] = React.useState(settings.ai_enabled ?? true);
+  const [askAddress, setAskAddress] = React.useState(settings.ask_address ?? true);
+  const [askEmail, setAskEmail] = React.useState(settings.ask_email ?? true);
+  const [askPhone, setAskPhone] = React.useState(settings.ask_phone ?? true);
+  const [askPaymentConfirm, setAskPaymentConfirm] = React.useState(settings.ask_payment_confirm ?? true);
+  const [askNotes, setAskNotes] = React.useState(settings.ask_notes ?? false);
+  const [enableUpsell, setEnableUpsell] = React.useState(settings.enable_upsell ?? true);
+  const [enableCrossSell, setEnableCrossSell] = React.useState(settings.enable_cross_sell ?? true);
+  const [showComparisons, setShowComparisons] = React.useState(settings.show_comparisons ?? false);
+  const [highlightOffers, setHighlightOffers] = React.useState(settings.highlight_offers ?? true);
+  const [autoCreateOrder, setAutoCreateOrder] = React.useState(settings.auto_create_order ?? true);
+  const [autoCapturePayment, setAutoCapturePayment] = React.useState(settings.auto_capture_payment ?? false);
+  const [responseLanguage, setResponseLanguage] = React.useState(settings.response_language ?? 'en_in');
+  const [responseStyle, setResponseStyle] = React.useState(settings.response_style ?? 'balanced');
 
-  const handleSave = () => {
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
+  const [localSaved, setLocalSaved] = React.useState(false);
+
+  const didInit = React.useRef(false);
+  React.useEffect(() => {
+    if (didInit.current || !merchant) return;
+    didInit.current = true;
+    setAiEnabled(settings.ai_enabled ?? true);
+    setAskAddress(settings.ask_address ?? true);
+    setAskEmail(settings.ask_email ?? true);
+    setAskPhone(settings.ask_phone ?? true);
+    setAskPaymentConfirm(settings.ask_payment_confirm ?? true);
+    setAskNotes(settings.ask_notes ?? false);
+    setEnableUpsell(settings.enable_upsell ?? true);
+    setEnableCrossSell(settings.enable_cross_sell ?? true);
+    setShowComparisons(settings.show_comparisons ?? false);
+    setHighlightOffers(settings.highlight_offers ?? true);
+    setAutoCreateOrder(settings.auto_create_order ?? true);
+    setAutoCapturePayment(settings.auto_capture_payment ?? false);
+    setResponseLanguage(settings.response_language ?? 'en_in');
+    setResponseStyle(settings.response_style ?? 'balanced');
+  }, [merchant, settings]);
+
+  const handleSave = async () => {
+    await saveSettings({
+      ai_enabled: aiEnabled,
+      ask_address: askAddress,
+      ask_email: askEmail,
+      ask_phone: askPhone,
+      ask_payment_confirm: askPaymentConfirm,
+      ask_notes: askNotes,
+      enable_upsell: enableUpsell,
+      enable_cross_sell: enableCrossSell,
+      show_comparisons: showComparisons,
+      highlight_offers: highlightOffers,
+      auto_create_order: autoCreateOrder,
+      auto_capture_payment: autoCapturePayment,
+      response_language: responseLanguage,
+      response_style: responseStyle,
+    });
+    setLocalSaved(true);
+    setTimeout(() => setLocalSaved(false), 3000);
   };
+
+  if (loading) {
+    return (
+      <Box padding="spacing.8" display="flex" justifyContent="center">
+        <Spinner accessibilityLabel="Loading settings" />
+      </Box>
+    );
+  }
 
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
 
-      {/* Breadcrumb */}
       <Box display="flex" alignItems="center" gap="spacing.2" marginBottom="spacing.3">
         <Link href="/dashboard/settings" style={{ textDecoration: 'none' }}>
           <Text size="small" color="interactive.text.primary.normal">Settings</Text>
@@ -58,7 +106,6 @@ export default function AIDefaultsPage() {
         <Text size="small" color="surface.text.gray.subtle">AI Defaults</Text>
       </Box>
 
-      {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" marginBottom="spacing.6">
         <Box display="flex" flexDirection="column" gap="spacing.1">
           <Heading size="2xlarge" weight="semibold">AI Defaults</Heading>
@@ -70,28 +117,32 @@ export default function AIDefaultsPage() {
           <Link href="/dashboard/settings" style={{ textDecoration: 'none' }}>
             <Button variant="tertiary">Cancel</Button>
           </Link>
-          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave}>
+          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave} isLoading={saving}>
             Save changes
           </Button>
         </Box>
       </Box>
 
-      {savedNotice && (
+      {(savedNotice || localSaved) && (
         <Box marginBottom="spacing.6">
           <Alert
             title="AI Defaults Saved"
             description="Your AI assistant behavior configuration has been updated."
             color="positive"
             isDismissible
-            onDismiss={() => setSavedNotice(false)}
+            onDismiss={() => setLocalSaved(false)}
           />
         </Box>
       )}
 
-      {/* Main Grid: Left Inner Menu (1fr), Right Panel (3fr) */}
+      {error && (
+        <Box marginBottom="spacing.6">
+          <Alert title="Error" description={error} color="negative" isDismissible />
+        </Box>
+      )}
+
       <Box display="grid" gridTemplateColumns={{ base: '1fr', l: '240px 1fr' }} gap="spacing.6">
 
-        {/* Left Inner Navigation Menu */}
         <Box display="flex" flexDirection="column" gap="spacing.4">
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
@@ -119,7 +170,6 @@ export default function AIDefaultsPage() {
             </CardBody>
           </Card>
 
-          {/* Helper Card */}
           <Card elevation="none" backgroundColor="surface.background.gray.subtle">
             <CardBody>
               <Box display="flex" flexDirection="column" gap="spacing.2">
@@ -135,10 +185,8 @@ export default function AIDefaultsPage() {
           </Card>
         </Box>
 
-        {/* Main Settings Panel */}
         <Box display="flex" flexDirection="column" gap="spacing.5">
 
-          {/* 1. General Behaviour */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" flexDirection="column" gap="spacing.4">
@@ -154,24 +202,34 @@ export default function AIDefaultsPage() {
                 </Box>
 
                 <Box display="grid" gridTemplateColumns={{ base: '1fr', m: '1fr 1fr' }} gap="spacing.4" borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3">
-                  <Dropdown>
-                    <SelectInput label="Default response language" placeholder="English (India)" />
+                  <Dropdown selectionType="single">
+                    <SelectInput
+                      label="Default response language"
+                      placeholder="English (India)"
+                      value={responseLanguage}
+                      onChange={({ values }) => setResponseLanguage(values[0])}
+                    />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="English (India)" value="en_in" onClick={() => {}} />
-                        <ActionListItem title="Hindi" value="hi" onClick={() => {}} />
-                        <ActionListItem title="Hinglish" value="hinglish" onClick={() => {}} />
+                        <ActionListItem title="English (India)" value="en_in" />
+                        <ActionListItem title="Hindi" value="hi" />
+                        <ActionListItem title="Hinglish" value="hinglish" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>
 
-                  <Dropdown>
-                    <SelectInput label="Response style" placeholder="Balanced (Short & Clear)" />
+                  <Dropdown selectionType="single">
+                    <SelectInput
+                      label="Response style"
+                      placeholder="Balanced (Short & Clear)"
+                      value={responseStyle}
+                      onChange={({ values }) => setResponseStyle(values[0])}
+                    />
                     <DropdownOverlay>
                       <ActionList>
-                        <ActionListItem title="Balanced (Short & Clear)" value="balanced" onClick={() => {}} />
-                        <ActionListItem title="Detailed & Technical" value="detailed" onClick={() => {}} />
-                        <ActionListItem title="Concise & Direct" value="concise" onClick={() => {}} />
+                        <ActionListItem title="Balanced (Short & Clear)" value="balanced" />
+                        <ActionListItem title="Detailed & Technical" value="detailed" />
+                        <ActionListItem title="Concise & Direct" value="concise" />
                       </ActionList>
                     </DropdownOverlay>
                   </Dropdown>
@@ -180,7 +238,6 @@ export default function AIDefaultsPage() {
             </CardBody>
           </Card>
 
-          {/* 2. Information Collection */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" flexDirection="column" gap="spacing.4">
@@ -232,7 +289,6 @@ export default function AIDefaultsPage() {
             </CardBody>
           </Card>
 
-          {/* 3. Sales & Recommendations */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" flexDirection="column" gap="spacing.4">
@@ -276,7 +332,6 @@ export default function AIDefaultsPage() {
             </CardBody>
           </Card>
 
-          {/* 4. Order & Payment */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" flexDirection="column" gap="spacing.4">

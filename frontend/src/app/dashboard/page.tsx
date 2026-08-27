@@ -9,6 +9,9 @@ import {
   CardBody, 
   Button, 
   Badge,
+  Alert,
+  Skeleton,
+  EmptyState,
   AlertCircleIcon, 
   UsersIcon, 
   ShoppingBagIcon, 
@@ -33,9 +36,11 @@ export default function DashboardPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const [resSessions, resOrders, resProducts, resAudit] = await Promise.all([
         fetch('/api/sessions').then(r => r.json()),
@@ -50,6 +55,7 @@ export default function DashboardPage() {
       if (resAudit.audit_logs) setAuditLogs(resAudit.audit_logs);
     } catch (err) {
       console.error('Error loading dashboard metrics:', err);
+      setError('We couldn’t load your dashboard data. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -80,6 +86,11 @@ export default function DashboardPage() {
     { title: 'Revenue Generated Today', value: `₹${revenueToday.toLocaleString('en-IN')}`, trend: 'Verified payments', icon: RupeeIcon, color: 'primary', href: '/dashboard/orders' }
   ];
 
+  const STAT_COLORS = {
+    primary: { bg: 'surface.background.primary.subtle', icon: 'interactive.icon.primary.normal' },
+    positive: { bg: 'feedback.background.positive.subtle', icon: 'interactive.icon.positive.normal' },
+  } as const;
+
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
       {/* Page Header */}
@@ -97,9 +108,32 @@ export default function DashboardPage() {
         </Box>
       </Box>
 
+      {error && (
+        <Alert color="negative" title="Couldn’t load dashboard" description={error} marginBottom="spacing.6" />
+      )}
+
+      {!isLoading && !error && sessions.length === 0 && orders.length === 0 && products.length === 0 && (
+        <Card elevation="none" backgroundColor="surface.background.gray.intense" marginBottom="spacing.6">
+          <CardBody>
+            <EmptyState
+              title="No activity yet"
+              description="Once your AI agent handles conversations and creates orders, your live operations overview will appear here."
+            />
+          </CardBody>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2, 1fr)', l: 'repeat(4, 1fr)' }} gap="spacing.4" marginBottom="spacing.6">
-        {SUMMARY_STATS.map((stat, i) => {
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} elevation="none" backgroundColor="surface.background.gray.intense">
+                <CardBody>
+                  <Skeleton height="64px" />
+                </CardBody>
+              </Card>
+            ))
+          : SUMMARY_STATS.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <Card key={i} elevation="none" backgroundColor="surface.background.gray.intense">
@@ -111,12 +145,12 @@ export default function DashboardPage() {
                         width="36px" 
                         height="36px" 
                         borderRadius="medium" 
-                        backgroundColor={`surface.background.${stat.color}.subtle` as any}
+                        backgroundColor={STAT_COLORS[stat.color as keyof typeof STAT_COLORS].bg}
                         display="flex" 
                         alignItems="center" 
                         justifyContent="center"
                       >
-                        <Icon size="medium" color={`interactive.icon.${stat.color}.normal` as any} />
+                        <Icon size="medium" color={STAT_COLORS[stat.color as keyof typeof STAT_COLORS].icon} />
                       </Box>
                       <Text weight="semibold" size="small" color="surface.text.gray.subtle">
                         {stat.title}

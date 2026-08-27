@@ -8,6 +8,7 @@ import {
   Button,
   Card,
   CardBody,
+  Skeleton,
   IconButton,
   DownloadIcon,
   CalendarIcon,
@@ -27,10 +28,12 @@ export default function AnalyticsPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadAnalyticsData() {
       setIsLoading(true);
+      setError(null);
       try {
         const [resSess, resOrd, resProd] = await Promise.all([
           fetch('/api/sessions').then(r => r.json()),
@@ -42,6 +45,7 @@ export default function AnalyticsPage() {
         if (resProd.products) setProducts(resProd.products);
       } catch (err) {
         console.error('Error fetching analytics:', err);
+        setError('We couldn’t load your analytics data. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -120,9 +124,23 @@ export default function AnalyticsPage() {
         </Box>
       </Box>
 
+      {error && (
+        <Alert color="negative" title="Couldn’t load analytics" description={error} marginBottom="spacing.6" />
+      )}
+
       {/* Summary Cards */}
       <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2,1fr)', l: 'repeat(4,1fr)' }} gap="spacing.4" marginBottom="spacing.6">
-        <Card elevation="none" backgroundColor="surface.background.gray.intense">
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} elevation="none" backgroundColor="surface.background.gray.intense">
+                <CardBody>
+                  <Skeleton height="64px" />
+                </CardBody>
+              </Card>
+            ))
+          : (
+          <>
+            <Card elevation="none" backgroundColor="surface.background.gray.intense">
           <CardBody>
             <Box display="flex" flexDirection="column" gap="spacing.2">
               <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">Total Revenue</Text>
@@ -161,6 +179,8 @@ export default function AnalyticsPage() {
             </Box>
           </CardBody>
         </Card>
+          </> 
+          )}
       </Box>
 
       {/* Revenue Over Time + Funnel */}
@@ -175,7 +195,7 @@ export default function AnalyticsPage() {
                 {revenueOverTime.map((day) => (
                   <Box key={day.label} flex={1} display="flex" flexDirection="column" alignItems="center" gap="spacing.2">
                     <Text size="xsmall" color="surface.text.gray.muted">{day.revenue > 0 ? `₹${Math.round(day.revenue / 1000)}k` : ''}</Text>
-                    <Box width="100%" height={`${Math.max(4, (day.revenue / maxDayRevenue) * 90)}px`} borderRadius="small" backgroundColor={'interactive.background.primary.default' as any} />
+                    <Box width="100%" height={`${Math.max(4, (day.revenue / maxDayRevenue) * 90)}px`} borderRadius="small" backgroundColor="surface.background.primary.intense" />
                     <Text size="xsmall" color="surface.text.gray.subtle">{day.label}</Text>
                   </Box>
                 ))}
@@ -235,7 +255,7 @@ export default function AnalyticsPage() {
                     <Text size="xsmall">{`₹${value.toLocaleString('en-IN')}`}</Text>
                   </Box>
                   <Box height="6px" borderRadius="round" backgroundColor="surface.background.gray.subtle">
-                    <Box height="6px" borderRadius="round" width={`${Math.max(8, (value / maxSourceRevenue) * 100)}%`} backgroundColor={'interactive.background.primary.default' as any} />
+                    <Box height="6px" borderRadius="round" width={`${Math.max(8, (value / maxSourceRevenue) * 100)}%`} backgroundColor="surface.background.primary.intense" />
                   </Box>
                 </Box>
               ))
@@ -307,14 +327,15 @@ export default function AnalyticsPage() {
       <Card elevation="none" backgroundColor="surface.background.gray.intense" marginBottom="spacing.6">
         <CardBody>
           <Heading size="small" marginBottom="spacing.4">Product Inventory Performance</Heading>
-          <Box display="grid" gridTemplateColumns="2fr 1fr 1fr 1fr" gap="spacing.3" paddingY="spacing.2" backgroundColor="surface.background.gray.subtle" borderRadius="small" marginBottom="spacing.2" paddingX="spacing.3">
+          <Box overflowX="auto">
+          <Box display="grid" minWidth="700px" gridTemplateColumns="2fr 1fr 1fr 1fr" gap="spacing.3" paddingY="spacing.2" backgroundColor="surface.background.gray.subtle" borderRadius="small" marginBottom="spacing.2" paddingX="spacing.3">
             <Text size="xsmall" weight="semibold">PRODUCT NAME</Text>
             <Text size="xsmall" weight="semibold">CATEGORY</Text>
             <Text size="xsmall" weight="semibold">PRICE</Text>
             <Text size="xsmall" weight="semibold">STOCK</Text>
           </Box>
           {products.slice(0, 8).map((p: any) => (
-            <Box key={p.id} display="grid" gridTemplateColumns="2fr 1fr 1fr 1fr" gap="spacing.3" paddingY="spacing.3" paddingX="spacing.3" borderBottomWidth="thin" borderBottomColor="surface.border.gray.muted" alignItems="center">
+            <Box key={p.id} display="grid" minWidth="700px" gridTemplateColumns="2fr 1fr 1fr 1fr" gap="spacing.3" paddingY="spacing.3" paddingX="spacing.3" borderBottomWidth="thin" borderBottomColor="surface.border.gray.muted" alignItems="center">
               <Text size="small" weight="semibold">{p.name}</Text>
               <Text size="xsmall" color="surface.text.gray.muted">{p.category || 'General'}</Text>
               <Text size="small" weight="semibold">₹{p.price}</Text>
@@ -323,6 +344,7 @@ export default function AnalyticsPage() {
               </Text>
             </Box>
           ))}
+          </Box>
         </CardBody>
       </Card>
     </Box>

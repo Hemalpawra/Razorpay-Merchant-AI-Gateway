@@ -515,8 +515,10 @@ function OrdersPageInner() {
       {/* Orders Table */}
       <Card elevation="none" backgroundColor="surface.background.gray.intense">
         <CardBody>
+          <Box overflowX="auto">
           <Box
             display="grid"
+            minWidth="900px"
             gridTemplateColumns="0.8fr 1fr 0.8fr 1.4fr 0.8fr 0.8fr 0.9fr 1fr auto"
             gap="spacing.4"
             paddingY="spacing.3"
@@ -604,7 +606,7 @@ function OrdersPageInner() {
               </Text>
             </Box>
           ) : (
-            <Box display="flex" flexDirection="column">
+            <Box display="flex" flexDirection="column" minWidth="900px">
               {orders.map((order, index) => (
                 <Box
                   key={order.id}
@@ -688,6 +690,7 @@ function OrdersPageInner() {
               ))}
             </Box>
           )}
+          </Box>
         </CardBody>
       </Card>
 
