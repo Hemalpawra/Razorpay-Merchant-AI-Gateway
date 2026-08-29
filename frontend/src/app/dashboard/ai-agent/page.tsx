@@ -10,8 +10,6 @@ import {
   Card,
   CardBody,
   Divider,
-  Dropdown,
-  DropdownOverlay,
   Heading,
   IconButton,
   SparklesIcon,
@@ -20,7 +18,9 @@ import {
   ArrowRightIcon,
   ClockIcon,
   Amount,
+  FilterIcon
 } from '@razorpay/blade/components';
+import { ReasoningTimeline } from '../components/ReasoningTimeline';
 
 type Message = { id: string; role: string; content: string; created_at?: string };
 type MatchedProduct = { product?: { id: string; name: string; price: number; stock_qty?: number; image_url?: string | null; sku?: string; slug?: string | null } };
@@ -222,6 +222,11 @@ function ConversationDrawer({
           )}
         </SectionCard>
 
+        {/* AI Reasoning Timeline */}
+        <SectionCard title="H. AI Reasoning">
+          <ReasoningTimeline sessionId={session.id} />
+        </SectionCard>
+
         {/* G. Audit Trail */}
         <SectionCard title="G. Audit Trail">
           <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -249,6 +254,8 @@ function AIAgentPageInner() {
   const [relatedOrder, setRelatedOrder] = useState<RelatedOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -270,6 +277,21 @@ function AIAgentPageInner() {
     return () => { cancelled = true; };
   }, [searchParams]);
 
+  // Filter sessions
+  const filteredSessions = sessions.filter(session => {
+    if (typeFilter !== 'all') {
+      const sessionType = session.external_ai_name?.toLowerCase() || 'human customer';
+      if (typeFilter === 'ai' && (sessionType.includes('chatgpt') || sessionType.includes('claude') || sessionType.includes('gemini') || sessionType.includes('grok'))) return true;
+      if (typeFilter === 'human' && sessionType === 'human customer') return true;
+      return false;
+    }
+    if (statusFilter !== 'all') {
+      if (statusFilter === 'attention' && !['waiting_for_payment', 'needs_human'].includes(session.status || '')) return false;
+      if (statusFilter !== 'attention' && session.status !== statusFilter) return false;
+    }
+    return true;
+  });
+
   // Load related audit events + order whenever a session is selected
   useEffect(() => {
     if (!selected) return;
@@ -290,18 +312,53 @@ function AIAgentPageInner() {
     return () => { cancelled = true; };
   }, [selected]);
 
-  const activeCount = useMemo(() => sessions.filter((session) => ['active', 'checkout_ready'].includes(session.status || '')).length, [sessions]);
+  const activeCount = useMemo(() => filteredSessions.filter((session) => ['active', 'checkout_ready'].includes(session.status || '')).length, [filteredSessions]);
 
   return (
     <Box padding={{ base: 'spacing.4', m: 'spacing.8' }} backgroundColor="surface.background.gray.subtle" minHeight="100%">
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" marginBottom="spacing.6"><Box display="flex" flexDirection="column" gap="spacing.1"><Heading size="2xlarge" weight="semibold">Conversations</Heading><Text size="small" color="surface.text.gray.subtle">Every customer and AI-agent conversation handled by your storefront assistant.</Text></Box><Button variant="secondary" href="/dashboard/settings/ai-defaults">AI Assistant Settings</Button></Box>
       <Box display="flex" gap="spacing.4" marginBottom="spacing.6">
-        <Card elevation="none"><CardBody><Text size="xsmall" color="surface.text.gray.muted">Total conversations</Text><Heading size="large">{sessions.length}</Heading></CardBody></Card>
+        <Card elevation="none"><CardBody><Text size="xsmall" color="surface.text.gray.muted">Total conversations</Text><Heading size="large">{filteredSessions.length}</Heading></CardBody></Card>
         <Card elevation="none"><CardBody><Text size="xsmall" color="surface.text.gray.muted">Active now</Text><Heading size="large">{activeCount}</Heading></CardBody></Card>
-        <Card elevation="none"><CardBody><Text size="xsmall" color="surface.text.gray.muted">Converted to orders</Text><Heading size="large">{sessions.filter((s) => s.status === 'paid').length}</Heading></CardBody></Card>
+        <Card elevation="none"><CardBody><Text size="xsmall" color="surface.text.gray.muted">Converted to orders</Text><Heading size="large">{filteredSessions.filter((s) => s.status === 'paid').length}</Heading></CardBody></Card>
       </Box>
+
+      {/* Filters */}
+      <Card elevation="none" marginBottom="spacing.4">
+        <CardBody>
+          <Box display="flex" gap="spacing.4" alignItems="center">
+            <FilterIcon size="small" color="interactive.icon.gray.muted" />
+            <Text size="small" weight="semibold">Filter:</Text>
+            <Box display="flex" gap="spacing.2" flexWrap="wrap">
+              {['all', 'ai', 'human'].map(type => (
+                <Button
+                  key={type}
+                  variant={typeFilter === type ? 'primary' : 'secondary'}
+                  size="small"
+                  onClick={() => setTypeFilter(type)}
+                >
+                  {type === 'all' ? 'All Types' : type === 'ai' ? 'AI Agents' : 'Human Customers'}
+                </Button>
+              ))}
+            </Box>
+            <Box display="flex" gap="spacing.2" flexWrap="wrap" marginLeft="auto">
+              {['all', 'active', 'checkout_ready', 'paid', 'completed'].map(status => (
+                <Button
+                  key={status}
+                  variant={statusFilter === status ? 'primary' : 'tertiary'}
+                  size="small"
+                  onClick={() => setStatusFilter(status)}
+                >
+                  {status === 'all' ? 'All Status' : status.replace('_', ' ')}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+        </CardBody>
+      </Card>
+
       {error && <Alert color="negative" title="Unable to load conversations" description={error} marginBottom="spacing.5" />}
-      <Card elevation="none"><CardBody><Box display="flex" flexDirection="column" gap="spacing.1"><Heading size="medium">All Conversations</Heading><Text size="small" color="surface.text.gray.subtle">Click a conversation to see messages, AI actions, order, invoice and tracking.</Text></Box><Box marginTop="spacing.5">{loading ? <Text size="small">Loading conversations…</Text> : sessions.length === 0 ? <Alert color="information" title="No conversations yet" description="When a customer chats with the storefront assistant, their session will appear here automatically." /> : sessions.map((session, index) => <Box key={session.id} display="flex" alignItems="center" justifyContent="space-between" gap="spacing.4" paddingY="spacing.4" borderTopWidth={index === 0 ? 'none' : 'thin'} borderTopColor="surface.border.gray.muted"><Box display="flex" alignItems="center" gap="spacing.3" flex={1}><Box width="40px" height="40px" borderRadius="round" backgroundColor="surface.background.primary.subtle" display="flex" alignItems="center" justifyContent="center"><SparklesIcon color="interactive.icon.primary.normal" /></Box><Box display="flex" flexDirection="column" gap="spacing.1"><Text size="small" weight="semibold">{session.external_ai_name || 'Customer'}</Text><Text size="xsmall" color="surface.text.gray.subtle">{session.customer_query || session.buyer_request_text || 'No request recorded.'}</Text></Box></Box><Box display="flex" alignItems="center" gap="spacing.3"><Badge color={statusTone[session.status || 'active'] ?? 'neutral'} size="small">{statusLabel(session.status)}</Badge><Text size="xsmall" color="surface.text.gray.subtle">{new Date(session.updated_at || session.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</Text><Button variant="secondary" size="small" onClick={() => setSelected(session)}>View</Button></Box></Box>)}</Box></CardBody></Card>
+      <Card elevation="none"><CardBody><Box display="flex" flexDirection="column" gap="spacing.1"><Heading size="medium">All Conversations</Heading><Text size="small" color="surface.text.gray.subtle">Click a conversation to see messages, AI actions, order, invoice and tracking.</Text></Box><Box marginTop="spacing.5">{loading ? <Text size="small">Loading conversations…</Text> : filteredSessions.length === 0 ? <Alert color="information" title="No conversations found" description="No conversations match your current filters." /> : filteredSessions.map((session, index) => <Box key={session.id} display="flex" alignItems="center" justifyContent="space-between" gap="spacing.4" paddingY="spacing.4" borderTopWidth={index === 0 ? 'none' : 'thin'} borderTopColor="surface.border.gray.muted"><Box display="flex" alignItems="center" gap="spacing.3" flex={1}><Box width="40px" height="40px" borderRadius="round" backgroundColor="surface.background.primary.subtle" display="flex" alignItems="center" justifyContent="center"><SparklesIcon color="interactive.icon.primary.normal" /></Box><Box display="flex" flexDirection="column" gap="spacing.1"><Text size="small" weight="semibold">{session.external_ai_name || 'Customer'}</Text><Text size="xsmall" color="surface.text.gray.subtle">{session.customer_query || session.buyer_request_text || 'No request recorded.'}</Text></Box></Box><Box display="flex" alignItems="center" gap="spacing.3"><Badge color={statusTone[session.status || 'active'] ?? 'neutral'} size="small">{statusLabel(session.status)}</Badge><Text size="xsmall" color="surface.text.gray.subtle">{new Date(session.updated_at || session.created_at).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</Text><Button variant="secondary" size="small" onClick={() => setSelected(session)}>View</Button></Box></Box>)}</Box></CardBody></Card>
       {selected && <ConversationDrawer session={selected} auditEvents={auditEvents} relatedOrder={relatedOrder} onClose={() => setSelected(null)} />}
     </Box>
   );

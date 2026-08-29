@@ -20,10 +20,16 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  TextInput
+  TextInput,
+  AlertTriangleIcon,
+  Dropdown,
+  DropdownOverlay,
+  ActionList,
+  ActionListItem
 } from '@razorpay/blade/components';
 import { ProductCard, Product } from '@/components/ProductCard';
 import { FilterPanel } from '@/components/FilterPanel';
+import { ProductDetailDrawer, ProductEditDrawer, BulkActionPanel } from '../components';
 import Link from 'next/link';
 
 export default function ProductsPage() {
@@ -31,6 +37,14 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  
+  // Bulk selection
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [showBulkPanel, setShowBulkPanel] = useState(false);
+  
+  // Detail/Edit drawers
+  const [detailProductId, setDetailProductId] = useState<string | null>(null);
+  const [editProductId, setEditProductId] = useState<string | null>(null);
 
   // New product form state
   const [newSKU, setNewSKU] = useState('');
@@ -110,6 +124,22 @@ export default function ProductsPage() {
   const activeCount = products.filter((p) => p.status === 'active').length;
   const lowStockCount = products.filter((p) => p.status === 'low_stock').length;
   const outOfStockCount = products.filter((p) => p.status === 'out_of_stock').length;
+
+  const toggleProductSelection = (productId: string) => {
+    setSelectedProducts(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedProducts.length === filteredProducts.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(filteredProducts.map(p => p.id));
+    }
+  };
 
   return (
     <Box display="flex" height="100%">
@@ -211,6 +241,47 @@ export default function ProductsPage() {
           </Box>
         </Box>
 
+        {/* Bulk Actions Bar */}
+        {selectedProducts.length > 0 && (
+          <Box 
+            display="flex" 
+            justifyContent="space-between" 
+            alignItems="center" 
+            padding="spacing.3" 
+            backgroundColor="surface.background.primary.subtle" 
+            borderRadius="medium"
+            marginBottom="spacing.4"
+          >
+            <Text size="small" weight="semibold">
+              {selectedProducts.length} product(s) selected
+            </Text>
+            <Box display="flex" gap="spacing.2">
+              <Button variant="tertiary" size="small" onClick={() => setSelectedProducts([])}>
+                Clear
+              </Button>
+              <Button variant="primary" size="small" onClick={() => setShowBulkPanel(true)}>
+                Bulk Actions
+              </Button>
+            </Box>
+          </Box>
+        )}
+
+        {/* Select All Option */}
+        {filteredProducts.length > 0 && (
+          <Box display="flex" alignItems="center" gap="spacing.2" marginBottom="spacing.3">
+            <Button
+              variant={selectedProducts.length === filteredProducts.length && filteredProducts.length > 0 ? 'primary' : 'secondary'}
+              size="small"
+              onClick={toggleSelectAll}
+            >
+              {selectedProducts.length === filteredProducts.length && filteredProducts.length > 0 ? 'Deselect All' : 'Select All'}
+            </Button>
+            <Text size="small" color="surface.text.gray.muted">
+              {selectedProducts.length > 0 ? `${selectedProducts.length} selected` : `${filteredProducts.length} products`}
+            </Text>
+          </Box>
+        )}
+
         {/* Product Grid */}
         {isLoading ? (
           <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2, 1fr)', l: 'repeat(4, 1fr)' }} gap="spacing.4">
@@ -234,7 +305,30 @@ export default function ProductsPage() {
         ) : (
           <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2, 1fr)', l: 'repeat(4, 1fr)' }} gap="spacing.4">
             {filteredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <Box key={product.id} position="relative">
+                <Box 
+                  position="absolute" 
+                  top="spacing.2" 
+                  right="spacing.2" 
+                  zIndex={2}
+                >
+                  <Button
+                    variant={selectedProducts.includes(product.id) ? 'primary' : 'tertiary'}
+                    size="xsmall"
+                    onClick={() => toggleProductSelection(product.id)}
+                  >
+                    {selectedProducts.includes(product.id) ? '✓' : '○'}
+                  </Button>
+                </Box>
+                <div onClick={() => setDetailProductId(product.id)} style={{ cursor: 'pointer' }}>
+                  <ProductCard product={product} />
+                </div>
+                {product.status === 'low_stock' && (
+                  <Box position="absolute" top="40px" left="spacing.2" zIndex={1}>
+                    <AlertTriangleIcon size="small" color="feedback.icon.notice.intense" />
+                  </Box>
+                )}
+              </Box>
             ))}
           </Box>
         )}
@@ -261,6 +355,42 @@ export default function ProductsPage() {
           <Button variant="primary" onClick={handleCreateProduct}>Save Product</Button>
         </ModalFooter>
       </Modal>
+
+      {/* Product Detail Drawer */}
+      {detailProductId && (
+        <ProductDetailDrawer
+          productId={detailProductId}
+          onClose={() => setDetailProductId(null)}
+          onEdit={() => {
+            setEditProductId(detailProductId);
+            setDetailProductId(null);
+          }}
+        />
+      )}
+
+      {/* Product Edit Drawer */}
+      {editProductId && (
+        <ProductEditDrawer
+          productId={editProductId}
+          onClose={() => {
+            setEditProductId(null);
+            fetchProducts();
+          }}
+        />
+      )}
+
+      {/* Bulk Action Panel */}
+      {showBulkPanel && (
+        <BulkActionPanel
+          selectedProducts={selectedProducts}
+          onClose={() => setShowBulkPanel(false)}
+          onActionComplete={() => {
+            fetchProducts();
+            setSelectedProducts([]);
+            setShowBulkPanel(false);
+          }}
+        />
+      )}
 
     </Box>
   );

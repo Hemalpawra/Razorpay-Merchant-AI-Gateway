@@ -30,7 +30,12 @@ import {
   ShoppingBagIcon,
   TrendingUpIcon,
   PackageIcon,
+  AlertTriangleIcon,
+  Alert
 } from "@razorpay/blade/components";
+import { SourceBadge } from '../components/SourceBadge';
+import { RefundDrawer } from '../components/RefundDrawer';
+import { TrackingTimeline } from '../components/TrackingTimeline';
 import Link from "next/link";
 
 export type PaymentStatus =
@@ -59,6 +64,8 @@ export interface OrderItem {
   createdAt: string;
   rawSessionId?: string | null;
   rawOrder?: any;
+  refundStatus?: string;
+  refundId?: string;
 }
 
 const paymentStatusConfig: Record<
@@ -75,11 +82,21 @@ const paymentStatusConfig: Record<
 function OrderDetailDrawer({
   order,
   onClose,
+  onRefund,
+  onRetry,
 }: {
   order: OrderItem;
   onClose: () => void;
+  onRefund: () => void;
+  onRetry: () => void;
 }) {
   const payCfg = paymentStatusConfig[order.paymentStatus];
+
+  // Calculate tax/shipping (mocked for demo - 18% GST, free shipping over 500)
+  const baseAmount = parseFloat(order.amount.replace(/[^0-9.]/g, "")) || 0;
+  const tax = Math.round(baseAmount * 0.18);
+  const shipping = baseAmount > 500 ? 0 : 50;
+  const subtotal = baseAmount - tax - shipping;
 
   return (
     <Box
@@ -110,6 +127,11 @@ function OrderDetailDrawer({
           <Badge color={payCfg.color} size="small">
             {payCfg.label}
           </Badge>
+          {order.refundStatus && (
+            <Badge color="negative" size="small">
+              {order.refundStatus}
+            </Badge>
+          )}
         </Box>
         <IconButton
           icon={CloseIcon}
@@ -118,6 +140,19 @@ function OrderDetailDrawer({
           onClick={onClose}
         />
       </Box>
+
+      {/* Tracking Timeline */}
+      {order.paymentStatus === 'Paid' && (
+        <Card
+          elevation="none"
+          backgroundColor="surface.background.gray.subtle"
+          marginBottom="spacing.5"
+        >
+          <CardBody>
+            <TrackingTimeline status={order.orderStatus === 'Completed' ? 'delivered' : 'preparing'} />
+          </CardBody>
+        </Card>
+      )}
 
       <Card
         elevation="none"
@@ -156,11 +191,11 @@ function OrderDetailDrawer({
               </Box>
               <Box>
                 <Text size="xsmall" color="surface.text.gray.muted">
-                  Amount
+                  Source
                 </Text>
-                <Text size="small" weight="semibold" marginTop="spacing.1">
-                  {order.amount}
-                </Text>
+                <Box marginTop="spacing.1">
+                  <SourceBadge source={order.source} />
+                </Box>
               </Box>
               <Box>
                 <Text size="xsmall" color="surface.text.gray.muted">
@@ -170,6 +205,39 @@ function OrderDetailDrawer({
                   {order.createdAt}
                 </Text>
               </Box>
+            </Box>
+          </Box>
+        </CardBody>
+      </Card>
+
+      {/* Amount Breakdown */}
+      <Card
+        elevation="none"
+        backgroundColor="surface.background.gray.subtle"
+        marginBottom="spacing.5"
+      >
+        <CardBody>
+          <Text size="small" weight="semibold" color="surface.text.gray.muted" marginBottom="spacing.2">
+            Amount Breakdown
+          </Text>
+          <Box display="flex" flexDirection="column" gap="spacing.1">
+            <Box display="flex" justifyContent="space-between">
+              <Text size="xsmall" color="surface.text.gray.subtle">Subtotal</Text>
+              <Text size="xsmall" weight="medium">₹{subtotal.toLocaleString('en-IN')}</Text>
+            </Box>
+            <Box display="flex" justifyContent="space-between">
+              <Text size="xsmall" color="surface.text.gray.subtle">Tax (18% GST)</Text>
+              <Text size="xsmall" weight="medium">₹{tax.toLocaleString('en-IN')}</Text>
+            </Box>
+            <Box display="flex" justifyContent="space-between">
+              <Text size="xsmall" color="surface.text.gray.subtle">Shipping</Text>
+              <Text size="xsmall" weight="medium">
+                {shipping === 0 ? <span style={{ color: 'green' }}>FREE</span> : `₹${shipping.toLocaleString('en-IN')}`}
+              </Text>
+            </Box>
+            <Box display="flex" justifyContent="space-between" paddingTop="spacing.2" borderTopWidth="thin" borderTopColor="surface.border.gray.muted" marginTop="spacing.1">
+              <Text size="small" weight="semibold">Total</Text>
+              <Text size="small" weight="semibold">{order.amount}</Text>
             </Box>
           </Box>
         </CardBody>
@@ -240,8 +308,47 @@ function OrderDetailDrawer({
               weight="semibold"
               color="surface.text.gray.muted"
             >
-              Related Links
+              Actions
             </Text>
+            
+            {/* Refund button - only for paid orders */}
+            {order.paymentStatus === 'Paid' && order.refundStatus !== 'processed' && (
+              <Button 
+                variant="tertiary" 
+                size="small" 
+                icon={RefreshIcon} 
+                iconPosition="left" 
+                isFullWidth
+                onClick={onRefund}
+              >
+                Refund Order
+              </Button>
+            )}
+            
+            {/* Retry payment - for pending/failed */}
+            {(order.paymentStatus === 'Pending' || order.paymentStatus === 'Failed') && (
+              <Button 
+                variant="primary" 
+                size="small" 
+                icon={RefreshIcon} 
+                iconPosition="left" 
+                isFullWidth
+                onClick={onRetry}
+              >
+                Retry Payment
+              </Button>
+            )}
+
+            {/* Refunded badge */}
+            {order.refundStatus === 'processed' && (
+              <Alert
+                color="positive"
+                title="Refund Processed"
+                description={`This order has been refunded. Refund ID: ${order.refundId || 'N/A'}`}
+                icon={CheckCircleIcon}
+              />
+            )}
+            
             <Link href={`/store/order-success/${order.rawOrder?.id ?? order.id}`} passHref legacyBehavior>
               <Button variant="secondary" size="small" icon={FileTextIcon} iconPosition="left" isFullWidth>
                 View Invoice &amp; Order Summary
@@ -295,6 +402,8 @@ function OrdersPageInner() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
+  const [showRefundDrawer, setShowRefundDrawer] = useState(false);
+  const [refundOrderId, setRefundOrderId] = useState<string | null>(null);
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -354,6 +463,8 @@ function OrdersPageInner() {
             }),
             rawSessionId: o.session_id,
             rawOrder: o,
+            refundStatus: o.refund_status,
+            refundId: o.refund_id,
           };
         });
         setOrders(mapped);
@@ -385,6 +496,31 @@ function OrdersPageInner() {
       (sum, o) => sum + parseFloat(o.amount.replace(/[^0-9.]/g, "") || "0"),
       0,
     );
+
+  const handleRefund = (orderId: string) => {
+    setRefundOrderId(orderId);
+    setShowRefundDrawer(true);
+  };
+
+  const handleRetry = async (orderId: string) => {
+    try {
+      const res = await fetch('/api/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          type: 'retry'
+        })
+      });
+      const data = await res.json();
+      if (data.payment_link) {
+        alert(`Payment link generated: ${data.payment_link}\n\nIn production, this would be sent to the customer via email/SMS.`);
+      }
+      fetchOrders();
+    } catch (err: any) {
+      alert('Failed to retry payment: ' + err.message);
+    }
+  };
 
   return (
     <Box
@@ -636,9 +772,7 @@ function OrdersPageInner() {
                       Session: {order.sessionId}
                     </Text>
                   </Box>
-                  <Badge color={order.source === "Human Customer" ? "neutral" : "information"} size="small">
-                    {order.source}
-                  </Badge>
+                  <SourceBadge source={order.source} />
                   <Text size="xsmall" color="surface.text.gray.subtle">
                     {order.product}
                   </Text>
@@ -698,6 +832,24 @@ function OrdersPageInner() {
         <OrderDetailDrawer
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
+          onRefund={() => handleRefund(selectedOrder.id)}
+          onRetry={() => handleRetry(selectedOrder.id)}
+        />
+      )}
+
+      {showRefundDrawer && refundOrderId && (
+        <RefundDrawer
+          order={{
+            id: refundOrderId,
+            amount: parseFloat(selectedOrder?.amount.replace(/[^0-9.]/g, '') || '0'),
+            status: selectedOrder?.paymentStatus || 'Pending',
+            customerName: selectedOrder?.customerName || ''
+          }}
+          onClose={() => {
+            setShowRefundDrawer(false);
+            setRefundOrderId(null);
+            fetchOrders();
+          }}
         />
       )}
     </Box>

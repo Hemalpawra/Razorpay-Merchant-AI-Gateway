@@ -13,6 +13,7 @@ import {
   Skeleton,
   EmptyState,
   AlertCircleIcon, 
+  AlertTriangleIcon,
   UsersIcon, 
   ShoppingBagIcon, 
   RupeeIcon,
@@ -26,9 +27,12 @@ import {
   ActivityIcon,
   FileTextIcon,
   SparklesIcon,
-  PackageIcon
+  PackageIcon,
+  InfoIcon
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { NeedsActionPanel } from './components/NeedsActionPanel';
+import { RevenueGrowthWidget } from './components/RevenueGrowthWidget';
 
 export default function DashboardPage() {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -106,6 +110,16 @@ export default function DashboardPage() {
             Refresh
           </Button>
         </Box>
+      </Box>
+
+      {/* Test Mode Badge */}
+      <Box marginBottom="spacing.4">
+        <Alert
+          color="notice"
+          title="Test Mode Active (Demo)"
+          description="You are currently using Razorpay Test Mode. No real money is being processed. Switch to Live Mode to start accepting real payments."
+          isDismissible={false}
+        />
       </Box>
 
       {error && (
@@ -188,6 +202,17 @@ export default function DashboardPage() {
         
         {/* Left Column */}
         <Box display="flex" flexDirection="column" gap="spacing.6">
+          
+          {/* Needs Action Panel */}
+          <Card elevation="none" backgroundColor="surface.background.gray.intense">
+            <CardBody>
+              <NeedsActionPanel />
+            </CardBody>
+          </Card>
+
+          {/* Revenue Growth Widget */}
+          <RevenueGrowthWidget />
+
           
           {/* AI Performance Summary */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
