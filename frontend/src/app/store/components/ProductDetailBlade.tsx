@@ -42,8 +42,9 @@ import {
 import { BladeRoot } from "./BladeRoot";
 import { useAiChat } from "./StoreAiProvider";
 import { categoryName, discountPct, type Product } from "@/lib/store/catalog";
+import { ProductRelationsSection } from "./ProductRelationsSection";
 
-type Props = { product: Product; related: Product[] };
+type Props = { product: Product; productId: string; related: Product[] };
 
 const assurances = [
   { icon: PackageIcon, title: "Free Delivery", sub: "On orders above ₹499" },
@@ -153,7 +154,7 @@ function RelatedCard({ item }: { item: Product }) {
   );
 }
 
-export default function ProductDetailBlade({ product, related }: Props) {
+export default function ProductDetailBlade({ product, productId, related }: Props) {
   const { openChat } = useAiChat();
   const router = useRouter();
   const [qty, setQty] = useState(1);
@@ -580,6 +581,9 @@ export default function ProductDetailBlade({ product, related }: Props) {
               ))}
             </Box>
           </Box>
+
+          {/* Product Relations - Similar, Better, Frequently Bought, Upgrade */}
+          <ProductRelationsSection productId={productId} />
         </Box>
       </Box>
     </BladeRoot>

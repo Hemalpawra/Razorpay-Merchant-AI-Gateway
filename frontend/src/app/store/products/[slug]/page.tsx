@@ -11,6 +11,7 @@ import { BladeRoot } from "../../components/BladeRoot";
 export default function ProductDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const [product, setProduct] = useState<ReturnType<typeof mapDbProduct> | null>(null);
   const [related, setRelated] = useState<ReturnType<typeof mapDbProduct>[]>([]);
+  const [productId, setProductId] = useState(''); // SKU from product detail
   const [loading, setLoading] = useState(true);
   const { slug } = use(params);
 
@@ -22,6 +23,9 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
         const live = (data.products ?? []).map(mapDbProduct);
         const match = live.find((item: ReturnType<typeof mapDbProduct>) => item.slug === slug) ?? null;
         setProduct(match);
+        if (match) {
+          setProductId(match.sku ?? '');
+        }
         setRelated(match ? relatedProducts(match, live) : []);
       })
       .catch(() => {
@@ -59,7 +63,7 @@ export default function ProductDetailPage({ params }: { params: Promise<{ slug: 
   return (
     <Box backgroundColor="surface.background.gray.subtle" minHeight="100vh">
       <SiteHeader />
-      <ProductDetailBlade product={product} related={related} />
+      <ProductDetailBlade product={product} productId={productId} related={related} />
     </Box>
   );
 }

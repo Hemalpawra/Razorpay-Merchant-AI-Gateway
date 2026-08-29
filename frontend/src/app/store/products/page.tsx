@@ -38,6 +38,7 @@ import { BladeRoot } from "../components/BladeRoot";
 import { SiteHeader } from "../components/SiteHeader";
 import { ProductCard } from "../components/ProductCard";
 import { useAiChat } from "../components/StoreAiProvider";
+import { ActiveFilterChip } from "../components/ActiveFilterChips";
 import {
   categories,
   categoryName,
@@ -329,6 +330,62 @@ function ProductsContent() {
                     ))}
                   </select>
                 </Box>
+              </Box>
+
+              {/* Active Filter Chips */}
+              <Box display="flex" flexDirection="row" gap="spacing.2" flexWrap="wrap" alignItems="center">
+                <Text size="xsmall" color="surface.text.gray.muted" weight="semibold">
+                  Active filters:
+                </Text>
+                
+                <ActiveFilterChip
+                  label="Search"
+                  type="search"
+                  value={q}
+                  onRemove={() => updateSearch({ q: "" })}
+                />
+                <ActiveFilterChip
+                  label="Category"
+                  type="category"
+                  value={category}
+                  onRemove={() => updateSearch({ category: "" })}
+                />
+                <ActiveFilterChip
+                  label="Brand"
+                  type="brand"
+                  value={selectedBrands}
+                  onRemove={() => updateSearch({ brand: [] })}
+                />
+                <ActiveFilterChip
+                  label="Max Price"
+                  type="price"
+                  value={maxPrice !== MAX_PRICE ? String(maxPrice) : null}
+                  onRemove={() => updateSearch({ maxPrice: String(MAX_PRICE) })}
+                />
+                <ActiveFilterChip
+                  label="Min Rating"
+                  type="rating"
+                  value={minRating > 0 ? String(minRating) : null}
+                  onRemove={() => updateSearch({ minRating: "" })}
+                />
+                <ActiveFilterChip
+                  label="In Stock"
+                  type="availability"
+                  value={inStock ? "true" : null}
+                  onRemove={() => updateSearch({ inStock: undefined })}
+                />
+                <ActiveFilterChip
+                  label="On Sale"
+                  type="availability"
+                  value={onSale ? "true" : null}
+                  onRemove={() => updateSearch({ onSale: undefined })}
+                />
+                
+                {(q || category || selectedBrands.length > 0 || maxPrice !== MAX_PRICE || minRating > 0 || inStock || onSale) && (
+                  <Button variant="tertiary" size="xsmall" onClick={clearAll}>
+                    Clear all
+                  </Button>
+                )}
               </Box>
 
               {/* Products Cards */}

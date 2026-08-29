@@ -82,8 +82,9 @@ export async function searchCatalog(args: SearchCatalogArgs): Promise<ToolResult
     const supabase = await createClient();
     const { data: products } = await supabase
       .from('products')
-      .select('id,sku,name,category,price,stock_qty,description,image_url')
+      .select('id,sku,name,category,price,stock_qty,description,image_url,meta_json')
       .eq('status', 'active')
+      .or('meta_json->>ai_visibility.is.null,meta_json->>ai_visibility.eq.true')
       .limit(args.limit ?? 20);
 
     if (!products || products.length === 0) {
@@ -124,9 +125,10 @@ export async function getProductDetails(args: GetProductDetailsArgs): Promise<To
     const supabase = await createClient();
     const { data: product } = await supabase
       .from('products')
-      .select('id,sku,name,category,price,stock_qty,description,image_url')
+      .select('id,sku,name,category,price,stock_qty,description,image_url,meta_json')
       .eq('sku', args.sku)
       .eq('status', 'active')
+      .or('meta_json->>ai_visibility.is.null,meta_json->>ai_visibility.eq.true')
       .single();
 
     if (!product) {
@@ -144,9 +146,10 @@ export async function compareProducts(args: CompareProductsArgs): Promise<ToolRe
     const supabase = await createClient();
     const { data: products } = await supabase
       .from('products')
-      .select('id,sku,name,category,price,stock_qty,description,image_url')
+      .select('id,sku,name,category,price,stock_qty,description,image_url,meta_json')
       .in('sku', args.skus)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .or('meta_json->>ai_visibility.is.null,meta_json->>ai_visibility.eq.true');
 
     if (!products || products.length === 0) {
       return { success: true, data: [] };

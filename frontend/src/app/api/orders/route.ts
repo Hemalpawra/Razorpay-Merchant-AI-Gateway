@@ -19,7 +19,10 @@ export async function GET(request: Request) {
         customer_details (*),
         buyer_sessions (*),
         order_items (*),
-        invoices (*)
+        invoices (*),
+        refund_status,
+        refund_amount,
+        refunded_at
       `)
       .order('created_at', { ascending: false });
 

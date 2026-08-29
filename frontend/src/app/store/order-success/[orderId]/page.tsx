@@ -59,6 +59,10 @@ type OrderRecord = {
   order_items: OrderItem[];
   invoices: Invoice[];
   customer_details: CustomerDetail[];
+  refund_status?: string | null;
+  refund_amount?: number | null;
+  refunded_at?: string | null;
+  tracking_stage?: string | null;
 };
 
 export default function OrderSuccessPage() {
@@ -259,6 +263,18 @@ export default function OrderSuccessPage() {
             <Badge color={isPaid ? 'positive' : 'information'} size="medium">
               {isPaid ? 'Razorpay Payment Verified' : order.status}
             </Badge>
+
+            {order.refund_status === 'processed' && order.refund_amount && (
+              <Box display="flex" flexDirection="column" alignItems="center" gap="spacing.2" marginTop="spacing.2">
+                <Badge color="notice" size="medium">
+                  Refund Processed
+                </Badge>
+                <Text size="small" color="surface.text.gray.muted">
+                  ₹{Number(order.refund_amount).toLocaleString('en-IN')} refunded on{' '}
+                  {order.refunded_at ? new Date(order.refunded_at).toLocaleDateString() : 'N/A'}
+                </Text>
+              </Box>
+            )}
           </Box>
         </Box>
 
@@ -301,10 +317,30 @@ export default function OrderSuccessPage() {
                 <Text size="small" weight="semibold">Amount Paid</Text>
                 <Amount value={order.amount} size="small" weight="semibold" color="interactive.text.primary.normal" suffix="none" />
               </Box>
-              <Box display="flex" justifyContent="space-between">
-                <Text size="small" color="surface.text.gray.muted">Payment Method</Text>
-                <Text size="small" weight="semibold">Razorpay</Text>
-              </Box>
+<Box display="flex" justifyContent="space-between">
+                  <Text size="small" color="surface.text.gray.muted">Payment Method</Text>
+                  <Text size="small" weight="semibold">Razorpay</Text>
+                </Box>
+
+                {order.refund_status === 'processed' && order.refund_amount && (
+                  <>
+                    <Divider />
+                    <Box display="flex" justifyContent="space-between">
+                      <Text size="small" color="surface.text.gray.muted">Refund Status</Text>
+                      <Badge color="notice" size="small">Processed</Badge>
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Text size="small" color="surface.text.gray.muted">Refund Amount</Text>
+                      <Amount value={Number(order.refund_amount)} size="small" suffix="none" />
+                    </Box>
+                    <Box display="flex" justifyContent="space-between">
+                      <Text size="small" color="surface.text.gray.muted">Refunded At</Text>
+                      <Text size="small" color="surface.text.gray.muted">
+                        {order.refunded_at ? new Date(order.refunded_at).toLocaleString() : 'N/A'}
+                      </Text>
+                    </Box>
+                  </>
+                )}
 
               {invoice && (
                 <Box borderTopWidth="thin" borderTopColor="surface.border.gray.muted" paddingTop="spacing.3" display="flex" gap="spacing.2">
