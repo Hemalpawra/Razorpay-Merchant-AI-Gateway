@@ -37,6 +37,24 @@ type MatchedProduct = {
   image_url?: string;
 };
 
+type StructuredResponse = {
+  quickAnswer: string;
+  keyDetails: string[];
+  whyFits: string[];
+  betterOptions: Array<{
+    name: string;
+    price: string;
+    bestFor: string;
+    mainDifference: string;
+    suggestion: string;
+  }>;
+  nextStep: {
+    action: "add_to_cart" | "buy_now" | "compare_more" | "ask_shipping";
+    label: string;
+    data: Record<string, unknown>;
+  };
+};
+
 type ChatMessageItem = {
   id: string;
   sender: "user" | "assistant";
@@ -46,6 +64,7 @@ type ChatMessageItem = {
   model_used?: string;
   isError?: boolean;
   suggestions?: string[];
+  structured?: StructuredResponse;
 };
 
 type Props = {
@@ -164,6 +183,115 @@ function SuggestedQuestionChips({
   );
 }
 
+function StructuredResponseRenderer({
+  structured,
+  onAddToCart,
+  onBuyNow,
+  onCompareMore,
+  onAskShipping,
+}: {
+  structured: NonNullable<ChatMessageItem["structured"]>;
+  onAddToCart: (item: MatchedProduct) => void;
+  onBuyNow: (data: Record<string, unknown>) => void;
+  onCompareMore: () => void;
+  onAskShipping: () => void;
+}) {
+  return (
+    <Box display="flex" flexDirection="column" gap="spacing.3" paddingLeft="spacing.3">
+      {/* Quick Answer */}
+      {structured.quickAnswer && (
+        <Box padding="spacing.3" backgroundColor="surface.background.primary.subtle" borderRadius="small">
+          <Text size="small" weight="semibold">{structured.quickAnswer}</Text>
+        </Box>
+      )}
+
+      {/* Key Details */}
+      {structured.keyDetails && structured.keyDetails.length > 0 && (
+        <Box display="flex" flexDirection="column" gap="spacing.1">
+          <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">KEY DETAILS</Text>
+          {structured.keyDetails.map((detail, idx) => (
+            <Text key={idx} size="small" color="surface.text.gray.normal">• {detail}</Text>
+          ))}
+        </Box>
+      )}
+
+      {/* Why This Fits */}
+      {structured.whyFits && structured.whyFits.length > 0 && (
+        <Box display="flex" flexDirection="column" gap="spacing.1">
+          <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">WHY THIS FITS</Text>
+          {structured.whyFits.map((reason, idx) => (
+            <Text key={idx} size="small" color="surface.text.gray.normal">✓ {reason}</Text>
+          ))}
+        </Box>
+      )}
+
+      {/* Better Options */}
+      {structured.betterOptions && structured.betterOptions.length > 0 && (
+        <Box display="flex" flexDirection="column" gap="spacing.2">
+          <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">BETTER OPTIONS</Text>
+          {structured.betterOptions.map((opt, idx) => (
+            <Card key={idx} elevation="none" backgroundColor="surface.background.gray.intense">
+              <CardBody>
+                <Box display="flex" flexDirection="column" gap="spacing.1" padding="spacing.3">
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Text size="small" weight="semibold">{opt.name}</Text>
+                    <Amount value={Number(opt.price.replace(/[^0-9.]/g, ""))} currency="INR" size="small" />
+                  </Box>
+                  <Text size="xsmall" color="surface.text.gray.subtle">Best for: {opt.bestFor}</Text>
+                  <Text size="xsmall" color="surface.text.gray.subtle">Difference: {opt.mainDifference}</Text>
+                  <Text size="xsmall" color="interactive.text.primary.normal">{opt.suggestion}</Text>
+                </Box>
+              </CardBody>
+            </Card>
+          ))}
+        </Box>
+      )}
+
+      {/* Next Step */}
+      {structured.nextStep && (
+        <Box marginTop="spacing.2">
+          {structured.nextStep.action === "add_to_cart" && (
+            <Button
+              variant="primary"
+              isFullWidth
+              icon={ShoppingCartIcon}
+              iconPosition="left"
+              onClick={() => {
+                const sku = structured.nextStep.data.sku as string;
+                const item = { sku, name: structured.nextStep.data.name as string, price: structured.nextStep.data.price as number };
+                onAddToCart(item as MatchedProduct);
+              }}
+            >
+              {structured.nextStep.label}
+            </Button>
+          )}
+          {structured.nextStep.action === "buy_now" && (
+            <Button
+              variant="primary"
+              isFullWidth
+              onClick={() => {
+                onBuyNow(structured.nextStep.data);
+              }}
+            >
+              {structured.nextStep.label}
+            </Button>
+          )}
+          {structured.nextStep.action === "compare_more" && (
+            <Button variant="secondary" isFullWidth onClick={onCompareMore}>
+              {structured.nextStep.label}
+            </Button>
+          )}
+          {structured.nextStep.action === "ask_shipping" && (
+            <Button variant="secondary" isFullWidth onClick={onAskShipping}>
+              {structured.nextStep.label}
+            </Button>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 const INITIAL_WELCOME_MESSAGE: ChatMessageItem = {
   id: "welcome_msg",
   sender: "assistant",
@@ -272,6 +400,7 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
         timestamp: getCurrentTimeString(),
         matched_products: data.matched_products || [],
         model_used: data.model_used || "openai/gpt-5-mini-fast",
+        structured: data.structured,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
@@ -551,6 +680,21 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
                       {msg.text}
                     </Text>
                   </BladeChatMessage>
+
+                  {/* Render Structured Response if available */}
+                  {msg.sender === "assistant" && msg.structured && (
+                    <StructuredResponseRenderer
+                      structured={msg.structured}
+                      onAddToCart={handleAddToCartAndCheckout}
+                      onBuyNow={(data) => {
+                        // For buy_now, we need to collect contact/shipping info first
+                        setPendingCheckoutItem(data as MatchedProduct);
+                        setActiveForm("contact");
+                      }}
+                      onCompareMore={() => handleSendMessage("Compare more options")}
+                      onAskShipping={() => setActiveForm("contact")}
+                    />
+                  )}
 
                   {/* Render Blade GenUI Cards if AI returned matched catalog products */}
                   {msg.sender === "assistant" &&
