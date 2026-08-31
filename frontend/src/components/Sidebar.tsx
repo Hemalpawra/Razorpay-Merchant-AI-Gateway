@@ -141,10 +141,10 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
       {/* Static sidebar on large screens */}
       <Box
         display={{ base: 'none', m: 'none', l: 'flex' }}
-        width="220px"
+        width="240px"
         height="100%"
         backgroundColor="surface.background.gray.intense"
-        borderRightWidth="thin"
+        borderRightWidth="none"
         borderRightColor="surface.border.gray.muted"
         flexShrink={0}
       >

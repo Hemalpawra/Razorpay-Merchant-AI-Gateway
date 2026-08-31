@@ -87,7 +87,8 @@ export default function DashboardPage() {
     { title: 'AI Status', value: 'Online', trend: 'Catalog synced & connected', icon: SparklesIcon, color: 'primary', href: '/dashboard/ai-agent' },
     { title: 'Active Conversations', value: String(activeConversations.length), trend: `${sessions.length} total`, icon: UsersIcon, color: 'primary', href: '/dashboard/ai-agent' },
     { title: 'Orders Created Today', value: String(ordersToday.length), trend: `${paidOrders.length} paid overall`, icon: ShoppingBagIcon, color: 'positive', href: '/dashboard/orders' },
-    { title: 'Revenue Generated Today', value: `₹${revenueToday.toLocaleString('en-IN')}`, trend: 'Verified payments', icon: RupeeIcon, color: 'primary', href: '/dashboard/orders' }
+    { title: 'Revenue Generated Today', value: `₹${revenueToday.toLocaleString('en-IN')}`, trend: 'Verified payments', icon: RupeeIcon, color: 'primary', href: '/dashboard/orders' },
+    { title: 'Avg. Order Value', value: paidOrders.length ? `₹${Math.round(paidOrders.reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0) / paidOrders.length).toLocaleString('en-IN')}` : '₹0', trend: 'Across paid orders', icon: PackageIcon, color: 'positive', href: '/dashboard/orders' }
   ];
 
   const STAT_COLORS = {
@@ -96,11 +97,11 @@ export default function DashboardPage() {
   } as const;
 
   return (
-    <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
+    <Box padding={{ base: 'spacing.4', m: 'spacing.6', l: 'spacing.8' }} backgroundColor="surface.background.gray.subtle" minHeight="100%">
       {/* Page Header */}
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" marginBottom="spacing.6">
         <Box>
-          <Heading size="2xlarge" marginBottom="spacing.2">Good morning, Merchant! 👋</Heading>
+          <Heading size="2xlarge" marginBottom="spacing.2">Good morning, Merchant!</Heading>
           <Text color="surface.text.gray.subtle">
             Here is your live AI commerce operations overview across buyer sessions, product search, and automated checkouts.
           </Text>

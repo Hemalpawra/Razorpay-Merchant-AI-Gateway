@@ -18,13 +18,15 @@ import {
 export function TopHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <Box 
-      height="56px" 
+      height="64px"
+      borderBottomWidth="thin"
+      borderBottomColor="surface.border.gray.muted" 
       paddingX={{ base: 'spacing.4', m: 'spacing.6' }}
       display="flex" 
       alignItems="center" 
       justifyContent="space-between"
       gap="spacing.2"
-      backgroundColor="surface.background.primary.intense"
+      backgroundColor="surface.background.gray.intense"
     >
       {/* Left: Brand Identity & AI Gateway Tag */}
       <Box display="flex" alignItems="center" gap="spacing.4" flex={1} minWidth="0px">
@@ -37,13 +39,13 @@ export function TopHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         />
         <Box display="flex" alignItems="center" gap="spacing.2" minWidth="0px">
           <RazorpayIcon color="interactive.icon.primary.subtle" size="medium" />
-          <Text weight="semibold" size="medium" color="surface.text.staticWhite.normal">
+          <Text weight="semibold" size="medium" color="surface.text.primary.normal">
             Razorpay
           </Text>
           <Text size="medium" color="surface.text.staticWhite.subtle">
             |
           </Text>
-          <Text weight="semibold" size="medium" color="surface.text.staticWhite.normal">
+          <Text weight="semibold" size="medium" color="surface.text.primary.normal">
             Merchant AI Gateway
           </Text>
         </Box>
@@ -112,7 +114,7 @@ export function TopHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         >
           <Avatar name="StyleTech Store" size="medium" />
           <Box display={{ base: 'none', m: 'flex' }} flexDirection="column">
-            <Text size="small" weight="semibold" color="surface.text.staticWhite.normal">
+            <Text size="small" weight="semibold" color="surface.text.primary.normal">
               StyleTech Store
             </Text>
             <Text size="xsmall" color="surface.text.staticWhite.subtle">
