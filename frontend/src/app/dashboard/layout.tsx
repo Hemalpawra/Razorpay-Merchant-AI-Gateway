@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { Box } from '@razorpay/blade/components';
 import { Sidebar } from '@/components/Sidebar';
-import { TopHeader } from '@/components/TopHeader';
 
 export default function DashboardLayout({
   children,
@@ -13,17 +12,11 @@ export default function DashboardLayout({
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
-    <Box display="flex" flexDirection="column" height="100vh" overflow="hidden" backgroundColor="surface.background.gray.subtle">
-      {/* Top Header - Razorpay Dark Navigation */}
-      <TopHeader onMenuClick={() => setMobileNavOpen(true)} />
-
-      {/* Main Body: Sidebar + Dynamic Content */}
-      <Box display="flex" flex={1} overflow="hidden">
-        <Sidebar isOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
-        <Box flex={1} minWidth="0px" overflow="auto" backgroundColor="surface.background.gray.subtle">
-          {children}
-        </Box>
-      </Box>
-    </Box>
+    <div style={{ display: 'flex', flexDirection: 'row', height: '100vh', overflow: 'hidden', backgroundColor: '#F8FAFC' }}>
+      <Sidebar isOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
+      <div style={{ flex: 1, minWidth: 0, overflow: 'auto', backgroundColor: '#F8FAFC' }}>
+        {children}
+      </div>
+    </div>
   );
 }
