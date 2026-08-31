@@ -8,6 +8,8 @@ export async function GET(request: Request) {
     const actorType = searchParams.get('actor_type');
     const eventType = searchParams.get('event_type');
     const search = searchParams.get('search');
+    const sessionId = searchParams.get('session_id');
+    const orderId = searchParams.get('order_id');
     const limit = parseInt(searchParams.get('limit') || '50', 10);
 
     const supabase = await createClient();
@@ -20,6 +22,12 @@ export async function GET(request: Request) {
 
     if (merchantId) {
       query = query.eq('merchant_id', merchantId);
+    }
+    if (sessionId) {
+      query = query.eq('session_id', sessionId);
+    }
+    if (orderId) {
+      query = query.eq('order_id', orderId);
     }
     if (actorType && actorType !== 'all') {
       query = query.eq('actor_type', actorType);

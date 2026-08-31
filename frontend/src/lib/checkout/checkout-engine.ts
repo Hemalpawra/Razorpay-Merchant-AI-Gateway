@@ -227,9 +227,32 @@ export class OrderCheckoutEngine {
         await supabase.from("orders").delete().eq("id", dbOrder.id);
         throw new Error(`Could not persist customer details: ${customerError.message}`);
       }
+      await MerchantAuditService.logEvent({
+        supabase,
+        merchant_id: finalMerchantId,
+        session_id: session_id || undefined,
+        order_id: dbOrder.id,
+        actor_type: "customer",
+        event_type: "shipping_details_collected",
+        title: "Shipping Details Collected",
+        description: `Delivery details collected for ${customer.full_name || customer.name || "Customer"} (${customer.city || ""}, ${customer.state || ""})`,
+        result: "success",
+      });
     }
 
     if (finalMerchantId) {
+      await MerchantAuditService.logEvent({
+        supabase,
+        merchant_id: finalMerchantId,
+        session_id: session_id || undefined,
+        order_id: dbOrder?.id || undefined,
+        actor_type: "system",
+        event_type: "razorpay_order_created",
+        title: "Razorpay Order Created",
+        description: `Razorpay order ${razorpayOrder.id} created for ₹${amount}`,
+        result: "success",
+        meta_json: { razorpay_order_id: razorpayOrder.id, amount, currency },
+      });
       await MerchantAuditService.logEvent({
         supabase,
         merchant_id: finalMerchantId,
@@ -242,6 +265,12 @@ export class OrderCheckoutEngine {
         result: "success",
         meta_json: { razorpay_order_id: razorpayOrder.id, amount, currency },
       });
+      if (session_id) {
+        await supabase
+          .from("buyer_sessions")
+          .update({ status: "checkout_ready", updated_at: new Date().toISOString() })
+          .eq("id", session_id);
+      }
     }
 
     return {
@@ -277,6 +306,26 @@ export class OrderCheckoutEngine {
     });
 
     if (!isValid) {
+      const supabase = await createClient();
+      const { data: failedOrder } = await supabase
+        .from("orders")
+        .select("id, merchant_id, session_id")
+        .eq(db_order_id ? "id" : "razorpay_order_id", db_order_id || razorpay_order_id)
+        .maybeSingle();
+      if (failedOrder) {
+        await MerchantAuditService.logEvent({
+          supabase,
+          merchant_id: failedOrder.merchant_id,
+          session_id: failedOrder.session_id || undefined,
+          order_id: failedOrder.id,
+          actor_type: "system",
+          event_type: "payment_failed",
+          title: "Payment Verification Failed",
+          description: `Signature verification failed for Razorpay order ${razorpay_order_id}. Customer can safely retry with another payment method.`,
+          result: "failure",
+          meta_json: { razorpay_order_id, razorpay_payment_id },
+        });
+      }
       throw new Error("Invalid Razorpay payment signature");
     }
 
@@ -431,6 +480,37 @@ export class OrderCheckoutEngine {
         updatedOrder.id,
         razorpay_payment_id,
       );
+      if (invoiceData) {
+        await MerchantAuditService.logEvent({
+          supabase,
+          merchant_id: updatedOrder.merchant_id,
+          session_id: updatedOrder.session_id || undefined,
+          order_id: updatedOrder.id,
+          actor_type: "system",
+          event_type: "invoice_generated",
+          title: "Invoice Generated",
+          description: `Invoice ${invoiceData.invoice_number} issued for ₹${invoiceData.grand_total}`,
+          result: "success",
+          meta_json: { invoice_number: invoiceData.invoice_number },
+        });
+      }
+      await MerchantAuditService.logEvent({
+        supabase,
+        merchant_id: updatedOrder.merchant_id,
+        session_id: updatedOrder.session_id || undefined,
+        order_id: updatedOrder.id,
+        actor_type: "system",
+        event_type: "tracking_started",
+        title: "Shipment Tracking Started",
+        description: `Dummy shipment tracking initialised for order ${updatedOrder.id.slice(0, 8).toUpperCase()}`,
+        result: "success",
+      });
+      if (updatedOrder.session_id) {
+        await supabase
+          .from("buyer_sessions")
+          .update({ status: "paid", updated_at: new Date().toISOString() })
+          .eq("id", updatedOrder.session_id);
+      }
     }
 
     return {

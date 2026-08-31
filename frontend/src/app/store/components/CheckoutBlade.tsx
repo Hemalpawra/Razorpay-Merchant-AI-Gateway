@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -19,12 +19,17 @@ import {
   Text,
   TextInput,
   ZapIcon,
+  Badge,
 } from "@razorpay/blade/components";
 
 import { BladeRoot } from "./BladeRoot";
 import { useStoreCart } from "./StoreCartProvider";
+import { useAiChat } from "./StoreAiProvider";
+import { useSearchParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
 
 type Address = {
+  id?: string;
   name: string;
   phone: string;
   email: string;
@@ -32,6 +37,22 @@ type Address = {
   city: string;
   state: string;
   pincode: string;
+  nickname?: string;
+  is_default?: boolean;
+};
+
+type SavedAddress = {
+  id: string;
+  full_name: string;
+  phone: string;
+  email: string;
+  shipping_address_line1: string;
+  shipping_address_line2?: string;
+  city: string;
+  state: string;
+  pincode: string;
+  nickname?: string;
+  is_default: boolean;
 };
 
 const emptyAddress: Address = {
@@ -68,14 +89,66 @@ const shippingMethods = [
 
 export default function CheckoutBlade() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [address, setAddress] = useState<Address>(emptyAddress);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [showSavedAddresses, setShowSavedAddresses] = useState(false);
+  const [selectedSavedAddressId, setSelectedSavedAddressId] = useState<string | null>(null);
   const [shipping, setShipping] = useState("standard");
   const [payMethod, setPayMethod] = useState("upi");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { lines: cartItems } = useStoreCart();
+  const { lines: cartItems, clearCart } = useStoreCart();
+  const { sessionId } = useAiChat();
 
   const setField = (key: keyof Address) => (value: string) => setAddress((prev) => ({ ...prev, [key]: value }));
+
+  // Fetch saved addresses when email changes
+  useEffect(() => {
+    if (address.email && address.email.includes('@')) {
+      fetch(`/api/addresses?email=${encodeURIComponent(address.email)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.addresses && data.addresses.length > 0) {
+            setSavedAddresses(data.addresses);
+            setShowSavedAddresses(true);
+            // Auto-select default address
+            const defaultAddr = data.addresses.find((a: SavedAddress) => a.is_default);
+            if (defaultAddr) {
+              selectSavedAddress(defaultAddr);
+            }
+          } else {
+            setSavedAddresses([]);
+            setShowSavedAddresses(false);
+          }
+        })
+        .catch(console.error);
+    } else {
+      setSavedAddresses([]);
+      setShowSavedAddresses(false);
+    }
+  }, [address.email]);
+
+  const selectSavedAddress = (saved: SavedAddress) => {
+    setSelectedSavedAddressId(saved.id);
+    setAddress({
+      id: saved.id,
+      name: saved.full_name,
+      phone: saved.phone,
+      email: saved.email,
+      line1: saved.shipping_address_line1,
+      city: saved.city,
+      state: saved.state,
+      pincode: saved.pincode,
+      nickname: saved.nickname,
+      is_default: saved.is_default,
+    });
+  };
+
+  const clearAddressForm = () => {
+    setSelectedSavedAddressId(null);
+    setAddress(emptyAddress);
+  };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.product.price * item.qty, 0);
   const selectedShip = shippingMethods.find((s) => s.id === shipping);
@@ -113,6 +186,7 @@ export default function CheckoutBlade() {
         body: JSON.stringify({
           currency: "INR",
           shipping_method: shipping,
+          session_id: sessionId,
           customer: {
             full_name: address.name,
             email: address.email,
@@ -169,6 +243,7 @@ export default function CheckoutBlade() {
               return;
             }
             setIsSubmitting(false);
+            clearCart();
             router.push(`/store/order-success/${data.db_order_id || data.razorpay_order_id}`);
           } catch (err: any) {
             setErrorMessage(err.message || "Payment verification failed.");
@@ -190,6 +265,22 @@ export default function CheckoutBlade() {
 
       const rzp = new (window as any).Razorpay(options);
       rzp.on("payment.failed", function (response: any) {
+        fetch("/api/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event_type: "payment_failed",
+            session_id: sessionId,
+            title: "Payment Failed",
+            description:
+              response?.error?.description ||
+              "Razorpay payment failed at checkout. Customer can safely retry with another payment method.",
+            meta_json: {
+              razorpay_order_id: response?.error?.metadata?.order_id || data.razorpay_order_id,
+              reason: response?.error?.reason || "unknown",
+            },
+          }),
+        }).catch(() => {});
         setErrorMessage(response?.error?.description || "Payment failed. Please try again with a different payment method.");
         setIsSubmitting(false);
       });
@@ -212,76 +303,109 @@ export default function CheckoutBlade() {
           <Box display="flex" flexDirection="row" gap="spacing.7" flexWrap="wrap" alignItems="flex-start">
             {/* Left Main Section */}
             <Box flex="2" minWidth="320px" display="flex" flexDirection="column" gap="spacing.5">
-              {/* Delivery Address Card */}
+{/* Delivery Address */}
               <Card elevation="lowRaised" padding="spacing.5">
                 <CardBody>
-                  <Box display="flex" flexDirection="column" gap="spacing.5">
-                    <Heading size="small" as="h2">
-                      1. Delivery Address
-                    </Heading>
+                  <Heading size="small" as="h2">
+                    1. Delivery Address
+                  </Heading>
 
-                    <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
-                      <Box flex="1" minWidth="240px">
-                        <TextInput
-                          label="Full name"
-                          value={address.name}
-                          onChange={({ value }) => setField("name")(value ?? "")}
-                          necessityIndicator="required"
-                        />
+                  {/* Saved Addresses */}
+                  {address.email && savedAddresses.length > 0 && (
+                    <>
+                      <Box display="flex" flexDirection="column" gap="spacing.3" marginBottom="spacing.4">
+                        <Text size="small" weight="semibold" color="interactive.text.primary.normal">
+                          Saved Addresses
+                        </Text>
+                        {savedAddresses.map((saved: SavedAddress) => (
+                          <Card
+                            key={saved.id}
+                            elevation="none"
+                            padding="spacing.5"
+                            backgroundColor={address.id === saved.id ? 'surface.background.gray.intense' : 'surface.background.gray.subtle'}
+                          >
+                            <CardBody>
+                              <Box
+                                display="flex"
+                                flexDirection="column"
+                                gap="spacing.2"
+                                borderWidth="thin"
+                                borderColor={address.id === saved.id ? 'interactive.border.primary.default' : 'surface.border.gray.muted'}
+                                borderRadius="medium"
+padding="spacing.3"
+                              >
+                                <Text size="small" weight="semibold" color="interactive.text.primary.normal">
+                                  {saved.nickname || saved.full_name}
+                                </Text>
+                                <Box display="flex" flexDirection="row" gap="spacing.2">
+                                  <Text size="xsmall" color="surface.text.gray.muted">{saved.phone || ''}</Text>
+                                  <Text size="xsmall" color="surface.text.gray.muted">{saved.pincode || ''}</Text>
+                                </Box>
+                                {saved.is_default && (
+                                  <Text size="xsmall" color="feedback.text.positive.subtle">Default</Text>
+                                )}
+                              </Box>
+                            </CardBody>
+                          </Card>
+                        ))}
                       </Box>
-                      <Box flex="1" minWidth="240px">
-                        <TextInput
-                          label="Phone number"
-                          value={address.phone}
-                          onChange={({ value }) => setField("phone")(value ?? "")}
-                          necessityIndicator="required"
-                        />
-                      </Box>
-                    </Box>
+                      {address.id && (
+                        <Box display="flex" flexDirection="row" gap="spacing.3" marginTop="spacing.3">
+                          <Button variant="secondary" isFullWidth onClick={() => clearAddressForm()}>
+                            Use Different Address
+                          </Button>
+                          <Button variant="primary" isFullWidth>
+                            Continue with this address
+                          </Button>
+                        </Box>
+                      )}
+                    </>
+                  )}
 
-                    <TextInput
-                      label="Email"
-                      type="email"
-                      value={address.email}
-                      onChange={({ value }) => setField("email")(value ?? "")}
-                      necessityIndicator="required"
-                    />
+                  {/* Manual Address Form */}
+                  {!address.id && (
+                    <>
+                      <TextInput
+                        label="Full name"
+                        value={address.name}
+                        onChange={({ value }) => setField("name")(value ?? "")}
+                        necessityIndicator="required"
+                      />
+                      <TextInput
+                        label="Phone number"
+                        type="telephone"
+                        value={address.phone}
+                        onChange={({ value }) => setField("phone")(value ?? "")}
+                        necessityIndicator="required"
+                      />
+                      <TextInput
+                        label="Email"
+                        type="email"
+                        value={address.email}
+                        onChange={({ value }) => setField("email")(value ?? "")}
+                        necessityIndicator="required"
+                      />
+                      <TextInput
+                        label="Address line"
+                        placeholder="House no., street, area"
+                        value={address.line1}
+                        onChange={({ value }) => setField("line1")(value ?? "")}
+                        necessityIndicator="required"
+                      />
+                      <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
+                        <Box flex="1" minWidth="180px">
+                          <TextInput label="City" value={address.city} onChange={({ value }) => setField("city")(value ?? "")} necessityIndicator="required" />
+                        </Box>
+                        <Box flex="1" minWidth="180px">
+                          <TextInput label="State" value={address.state} onChange={({ value }) => setField("state")(value ?? "")} necessityIndicator="required" />
+                        </Box>
+                        <Box flex="1" minWidth="140px">
+                          <TextInput label="Pincode" value={address.pincode} onChange={({ value }) => setField("pincode")(value ?? "")} necessityIndicator="required" />
+                        </Box>
+                      </Box>
+                    </>
+                  )}
 
-                    <TextInput
-                      label="Address line"
-                      placeholder="House no., street, area"
-                      value={address.line1}
-                      onChange={({ value }) => setField("line1")(value ?? "")}
-                      necessityIndicator="required"
-                    />
-
-                    <Box display="flex" flexDirection="row" gap="spacing.4" flexWrap="wrap">
-                      <Box flex="1" minWidth="180px">
-                        <TextInput
-                          label="City"
-                          value={address.city}
-                          onChange={({ value }) => setField("city")(value ?? "")}
-                          necessityIndicator="required"
-                        />
-                      </Box>
-                      <Box flex="1" minWidth="180px">
-                        <TextInput
-                          label="State"
-                          value={address.state}
-                          onChange={({ value }) => setField("state")(value ?? "")}
-                          necessityIndicator="required"
-                        />
-                      </Box>
-                      <Box flex="1" minWidth="140px">
-                        <TextInput
-                          label="Pincode"
-                          value={address.pincode}
-                          onChange={({ value }) => setField("pincode")(value ?? "")}
-                          necessityIndicator="required"
-                        />
-                      </Box>
-                    </Box>
-                  </Box>
                 </CardBody>
               </Card>
 

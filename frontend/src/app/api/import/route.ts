@@ -2,9 +2,51 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { MerchantAuditService } from "@/utils/audit";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = await createClient();
+    const { searchParams } = new URL(request.url);
+    const importId = searchParams.get('import_id');
+
+    // If import_id provided, get specific import details
+    if (importId) {
+      const { data: importJob } = await supabase
+        .from("product_imports")
+        .select("*")
+        .eq("id", importId)
+        .single();
+
+      if (!importJob) {
+        return NextResponse.json({ error: "Import not found" }, { status: 404 });
+      }
+
+      // Parse issues from meta_json
+      const meta = importJob.meta_json || {};
+      const issues = meta.issues || [];
+
+      // Categorize issues
+      const validationList = issues.map((issue: any) => ({
+        row: issue.row,
+        sku: issue.sku,
+        message: issue.message,
+        type: categorizeIssue(issue.message)
+      }));
+
+      return NextResponse.json({
+        importJob,
+        summary: {
+          totalRows: importJob.total_rows,
+          successfulRows: importJob.successful_rows,
+          failedRows: importJob.failed_rows,
+          duplicatesFound: meta.duplicates?.length || 0,
+          importedSuccessfully: importJob.successful_rows,
+          status: importJob.status
+        },
+        issues: validationList
+      });
+    }
+
+    // Otherwise return import history
     const { data, error } = await supabase
       .from("product_imports")
       .select("*")
@@ -20,6 +62,32 @@ export async function GET() {
       { status: 500 },
     );
   }
+}
+
+function categorizeIssue(message: string): string {
+  const lowerMsg = message.toLowerCase();
+  if (lowerMsg.includes('required') && (lowerMsg.includes('price') || lowerMsg.includes('stock'))) {
+    return 'missing_required_field';
+  }
+  if (lowerMsg.includes('price') && (lowerMsg.includes('invalid') || lowerMsg.includes('format'))) {
+    return 'invalid_price';
+  }
+  if (lowerMsg.includes('duplicate') && lowerMsg.includes('sku')) {
+    return 'duplicate_sku';
+  }
+  if (lowerMsg.includes('duplicate') && lowerMsg.includes('name')) {
+    return 'duplicate_name';
+  }
+  if (lowerMsg.includes('image') && (lowerMsg.includes('url') || lowerMsg.includes('invalid'))) {
+    return 'bad_image_url';
+  }
+  if (lowerMsg.includes('stock')) {
+    return 'stock_missing';
+  }
+  if (lowerMsg.includes('category')) {
+    return 'category_missing';
+  }
+  return 'unknown';
 }
 
 export async function POST(request: Request) {

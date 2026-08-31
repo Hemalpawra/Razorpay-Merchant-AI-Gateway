@@ -19,9 +19,12 @@ import {
   RayIcon,
   ShoppingCartIcon,
   Text,
+  TextInput,
 } from "@razorpay/blade/components";
 
 import { BladeRoot } from "./BladeRoot";
+import { useAiChat } from "./StoreAiProvider";
+import { openRazorpay } from "@/lib/razorpay-client";
 import { type Product } from "@/lib/store/catalog";
 
 type MatchedProduct = {
@@ -31,6 +34,25 @@ type MatchedProduct = {
   description?: string;
   price: number;
   stock?: number;
+  image_url?: string;
+};
+
+type StructuredResponse = {
+  quickAnswer: string;
+  keyDetails: string[];
+  whyFits: string[];
+  betterOptions: Array<{
+    name: string;
+    price: string;
+    bestFor: string;
+    mainDifference: string;
+    suggestion: string;
+  }>;
+  nextStep: {
+    action: "add_to_cart" | "buy_now" | "compare_more" | "ask_shipping";
+    label: string;
+    data: Record<string, unknown>;
+  };
 };
 
 type ChatMessageItem = {
@@ -42,6 +64,7 @@ type ChatMessageItem = {
   model_used?: string;
   isError?: boolean;
   suggestions?: string[];
+  structured?: StructuredResponse;
 };
 
 type Props = {
@@ -74,62 +97,56 @@ function GenUIProductCard({
   item: MatchedProduct;
   onAddToCart: (item: MatchedProduct) => void;
 }) {
+  const inStock = (item.stock ?? 0) > 0;
+  const imageUrl = item.image_url ?? "/store/p-headphones.jpg";
+
   return (
     <Card elevation="none" backgroundColor="surface.background.gray.intense">
       <CardBody>
-        <Box display="flex" flexDirection="column" gap="spacing.3">
+        <Box display="flex" gap="spacing.3" alignItems="center" padding="spacing.3">
           <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
+            width="64px"
+            height="64px"
+            borderRadius="small"
+            backgroundColor="surface.background.gray.subtle"
+            flexShrink={0}
+            overflow="hidden"
           >
-            <Badge color="positive" size="small">
-              AI Catalog Match
-            </Badge>
-            <Text
-              size="xsmall"
-              color={
-                (item.stock ?? 0) > 0
-                  ? "surface.text.gray.muted"
-                  : "surface.text.gray.subtle"
-              }
-            >
-              {(item.stock ?? 0) > 0
-                ? `In stock · ${item.stock}`
-                : "Currently unavailable"}
-            </Text>
+            <img
+              src={imageUrl}
+              alt={item.name}
+              width="64"
+              height="64"
+              style={{ objectFit: "cover" }}
+            />
           </Box>
-
-          <Text size="medium" weight="semibold">
-            {item.name}
-          </Text>
-          {item.description && (
-            <Text
-              size="xsmall"
-              color="surface.text.gray.subtle"
-              truncateAfterLines={2}
-            >
-              {item.description}
-            </Text>
-          )}
-
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-            marginTop="spacing.2"
-          >
-            <Amount value={item.price} currency="INR" size="medium" />
-            <Button
-              variant="primary"
-              size="small"
-              icon={ShoppingCartIcon}
-              iconPosition="left"
-              onClick={() => onAddToCart(item)}
-              isDisabled={(item.stock ?? 0) <= 0}
-            >
-              Add &amp; Checkout
-            </Button>
+          <Box flex={1} display="flex" flexDirection="column" gap="spacing.1">
+            <Box display="flex" flexWrap="wrap" alignItems="center" gap="spacing.2">
+              <Text size="small" weight="semibold" truncateAfterLines={1}>
+                {item.name}
+              </Text>
+              <Badge color={inStock ? "positive" : "neutral"} size="xsmall">
+                {inStock ? `In Stock · ${item.stock}` : "Out of Stock"}
+              </Badge>
+            </Box>
+            {item.description && (
+              <Text size="xsmall" color="surface.text.gray.subtle" truncateAfterLines={1}>
+                {item.description}
+              </Text>
+            )}
+            <Box display="flex" justifyContent="space-between" alignItems="center" marginTop="spacing.1">
+              <Amount value={item.price} currency="INR" size="medium" />
+              <Button
+                variant="primary"
+                size="xsmall"
+                icon={ShoppingCartIcon}
+                iconPosition="left"
+                onClick={() => onAddToCart(item)}
+                isDisabled={!inStock}
+              >
+                Add & Checkout
+              </Button>
+            </Box>
           </Box>
         </Box>
       </CardBody>
@@ -166,6 +183,115 @@ function SuggestedQuestionChips({
   );
 }
 
+function StructuredResponseRenderer({
+  structured,
+  onAddToCart,
+  onBuyNow,
+  onCompareMore,
+  onAskShipping,
+}: {
+  structured: NonNullable<ChatMessageItem["structured"]>;
+  onAddToCart: (item: MatchedProduct) => void;
+  onBuyNow: (data: Record<string, unknown>) => void;
+  onCompareMore: () => void;
+  onAskShipping: () => void;
+}) {
+  return (
+    <Box display="flex" flexDirection="column" gap="spacing.3" paddingLeft="spacing.3">
+      {/* Quick Answer */}
+      {structured.quickAnswer && (
+        <Box padding="spacing.3" backgroundColor="surface.background.primary.subtle" borderRadius="small">
+          <Text size="small" weight="semibold">{structured.quickAnswer}</Text>
+        </Box>
+      )}
+
+      {/* Key Details */}
+      {structured.keyDetails && structured.keyDetails.length > 0 && (
+        <Box display="flex" flexDirection="column" gap="spacing.1">
+          <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">KEY DETAILS</Text>
+          {structured.keyDetails.map((detail, idx) => (
+            <Text key={idx} size="small" color="surface.text.gray.normal">• {detail}</Text>
+          ))}
+        </Box>
+      )}
+
+      {/* Why This Fits */}
+      {structured.whyFits && structured.whyFits.length > 0 && (
+        <Box display="flex" flexDirection="column" gap="spacing.1">
+          <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">WHY THIS FITS</Text>
+          {structured.whyFits.map((reason, idx) => (
+            <Text key={idx} size="small" color="surface.text.gray.normal">✓ {reason}</Text>
+          ))}
+        </Box>
+      )}
+
+      {/* Better Options */}
+      {structured.betterOptions && structured.betterOptions.length > 0 && (
+        <Box display="flex" flexDirection="column" gap="spacing.2">
+          <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">BETTER OPTIONS</Text>
+          {structured.betterOptions.map((opt, idx) => (
+            <Card key={idx} elevation="none" backgroundColor="surface.background.gray.intense">
+              <CardBody>
+                <Box display="flex" flexDirection="column" gap="spacing.1" padding="spacing.3">
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Text size="small" weight="semibold">{opt.name}</Text>
+                    <Amount value={Number(opt.price.replace(/[^0-9.]/g, ""))} currency="INR" size="small" />
+                  </Box>
+                  <Text size="xsmall" color="surface.text.gray.subtle">Best for: {opt.bestFor}</Text>
+                  <Text size="xsmall" color="surface.text.gray.subtle">Difference: {opt.mainDifference}</Text>
+                  <Text size="xsmall" color="interactive.text.primary.normal">{opt.suggestion}</Text>
+                </Box>
+              </CardBody>
+            </Card>
+          ))}
+        </Box>
+      )}
+
+      {/* Next Step */}
+      {structured.nextStep && (
+        <Box marginTop="spacing.2">
+          {structured.nextStep.action === "add_to_cart" && (
+            <Button
+              variant="primary"
+              isFullWidth
+              icon={ShoppingCartIcon}
+              iconPosition="left"
+              onClick={() => {
+                const sku = structured.nextStep.data.sku as string;
+                const item = { sku, name: structured.nextStep.data.name as string, price: structured.nextStep.data.price as number };
+                onAddToCart(item as MatchedProduct);
+              }}
+            >
+              {structured.nextStep.label}
+            </Button>
+          )}
+          {structured.nextStep.action === "buy_now" && (
+            <Button
+              variant="primary"
+              isFullWidth
+              onClick={() => {
+                onBuyNow(structured.nextStep.data);
+              }}
+            >
+              {structured.nextStep.label}
+            </Button>
+          )}
+          {structured.nextStep.action === "compare_more" && (
+            <Button variant="secondary" isFullWidth onClick={onCompareMore}>
+              {structured.nextStep.label}
+            </Button>
+          )}
+          {structured.nextStep.action === "ask_shipping" && (
+            <Button variant="secondary" isFullWidth onClick={onAskShipping}>
+              {structured.nextStep.label}
+            </Button>
+          )}
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 const INITIAL_WELCOME_MESSAGE: ChatMessageItem = {
   id: "welcome_msg",
   sender: "assistant",
@@ -176,12 +302,28 @@ const INITIAL_WELCOME_MESSAGE: ChatMessageItem = {
 
 export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
   const router = useRouter();
+  const { sessionId, setSessionId } = useAiChat();
   const [messages, setMessages] = useState<ChatMessageItem[]>([
     INITIAL_WELCOME_MESSAGE,
   ]);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [activeForm, setActiveForm] = useState<"contact" | "shipping" | null>(
+    null,
+  );
+  const [pendingCheckoutItem, setPendingCheckoutItem] =
+    useState<MatchedProduct | null>(null);
+  const [trackOrderId, setTrackOrderId] = useState<string | null>(null);
+  const [cf, setCf] = useState({ name: "", email: "", phone: "" });
+  const [sf, setSf] = useState({
+    line1: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const isSendingRef = useRef(false);
@@ -198,6 +340,16 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setActiveForm(null);
+      setPendingCheckoutItem(null);
+      setTrackOrderId(null);
+      setCf({ name: "", email: "", phone: "" });
+      setSf({ line1: "", city: "", state: "", pincode: "" });
+    }
+  }, [isOpen]);
 
   const handleSendMessage = async (customText?: string) => {
     const textToSend = (
@@ -248,9 +400,20 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
         timestamp: getCurrentTimeString(),
         matched_products: data.matched_products || [],
         model_used: data.model_used || "openai/gpt-5-mini-fast",
+        structured: data.structured,
       };
 
       setMessages((prev) => [...prev, aiMsg]);
+
+      if (data.action === "checkout" && data.checkout) {
+        openRazorpayWithPayload(data.checkout);
+      } else if (data.action === "collect_contact") {
+        setActiveForm("contact");
+      } else if (data.action === "collect_shipping") {
+        setActiveForm("shipping");
+      } else if (data.action === "track" && data.order_id) {
+        setTrackOrderId(data.order_id);
+      }
     } catch (err) {
       console.error("AI Chat Error:", err);
       // Mark the user's own message as failed (Blade's error affordance is on senderType="self")
@@ -269,13 +432,169 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
     handleSendMessage(text);
   };
 
-  const handleAddToCartAndCheckout = (item: MatchedProduct) => {
-    onDismiss();
-    router.push(
-      `/store/checkout?sku=${encodeURIComponent(item.sku || item.name)}`,
-    );
+  const submitContact = () => {
+    if (pendingCheckoutItem) {
+      // Single-product checkout flow: advance to shipping collection.
+      setActiveForm("shipping");
+      return;
+    }
+    const text = `name: ${cf.name}, email: ${cf.email}, phone: ${cf.phone}`;
+    setActiveForm(null);
+    setCf({ name: "", email: "", phone: "" });
+    handleSendMessage(text);
   };
 
+  const submitShipping = () => {
+    if (pendingCheckoutItem) {
+      // Single-product checkout flow: create the order with collected details.
+      const item = pendingCheckoutItem;
+      setPendingCheckoutItem(null);
+      setActiveForm(null);
+      setSf({ line1: "", city: "", state: "", pincode: "" });
+      createOrderAndPay(item, {
+        full_name: cf.name,
+        email: cf.email,
+        phone: cf.phone,
+        line1: sf.line1,
+        city: sf.city,
+        state: sf.state,
+        pincode: sf.pincode,
+        payment_mode: "upi",
+      });
+      return;
+    }
+    const text = `address: ${sf.line1}, city: ${sf.city}, state: ${sf.state}, pincode: ${sf.pincode}`;
+    setActiveForm(null);
+    setSf({ line1: "", city: "", state: "", pincode: "" });
+    handleSendMessage(text);
+  };
+
+  const createOrderAndPay = (
+    item: MatchedProduct,
+    customer: {
+      full_name: string;
+      email: string;
+      phone: string;
+      line1: string;
+      city: string;
+      state: string;
+      pincode: string;
+      payment_mode: string;
+    },
+  ) => {
+    if (!item.sku) {
+      setErrorMessage("Missing product SKU. Please try again.");
+      return;
+    }
+    setIsSubmitting(true);
+    (async () => {
+      try {
+        const orderData = await fetch("/api/checkout/create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            currency: "INR",
+            shipping_method: "standard",
+            session_id: sessionId,
+            customer,
+            items: [{ sku: item.sku, qty: 1 }],
+          }),
+        }).then((r) => r.json());
+        if (!orderData.key_id || !orderData.razorpay_order_id) {
+          throw new Error("Order creation failed");
+        }
+        openRazorpayForOrder({
+          key_id: orderData.key_id,
+          razorpay_order_id: orderData.razorpay_order_id,
+          amount: orderData.amount,
+          db_order_id: orderData.db_order_id,
+          currency: orderData.currency,
+          prefill: {
+            name: customer.full_name,
+            email: customer.email,
+            contact: customer.phone,
+          },
+        });
+      } catch (err: any) {
+        setErrorMessage(err.message || "Checkout failed. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    })();
+  };
+
+  const openRazorpayForOrder = (order: {
+    key_id: string;
+    razorpay_order_id: string;
+    amount: number;
+    db_order_id: string;
+    currency?: string;
+    prefill?: { name?: string; email?: string; contact?: string };
+  }) => {
+    openRazorpay({
+      key_id: order.key_id,
+      razorpay_order_id: order.razorpay_order_id,
+      amount: order.amount,
+      currency: order.currency || "INR",
+      db_order_id: order.db_order_id,
+      prefill: order.prefill,
+      onSuccess: async (response: any) => {
+        try {
+          const verifyRes = await fetch("/api/checkout/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              db_order_id: order.db_order_id,
+              customer: {},
+            }),
+          });
+          const verifyData = await verifyRes.json();
+          if (!verifyRes.ok || verifyData.error) {
+            throw new Error(verifyData.error || "Payment verification failed");
+          }
+          setIsSubmitting(false);
+          onDismiss();
+          router.push(`/store/order-success/${order.db_order_id || response.razorpay_order_id}`);
+        } catch (err: any) {
+          setErrorMessage(err.message || "Payment verification failed");
+          setIsSubmitting(false);
+        }
+      },
+      onError: (msg: string) => setErrorMessage(msg),
+      onDismiss: () => setIsSubmitting(false),
+    });
+  };
+
+  const handleAddToCartAndCheckout = (item: MatchedProduct) => {
+    fetch("/api/events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event_type: "product_selected",
+        session_id: sessionId,
+        title: "Product Selected",
+        description: `${item.name} added to cart from AI recommendation`,
+        meta_json: { sku: item.sku, price: item.price },
+      }),
+    }).catch(() => {});
+    // Collect customer + shipping details before creating the order.
+    setPendingCheckoutItem(item);
+    setActiveForm("contact");
+  };
+
+  const openRazorpayWithPayload = (payload: any) => {
+    openRazorpayForOrder({
+      key_id: payload?.key_id,
+      razorpay_order_id: payload?.razorpay_order_id,
+      amount: payload?.amount,
+      db_order_id: payload?.db_order_id,
+      currency: payload?.currency,
+      prefill: payload?.prefill,
+    });
+  };
   return (
     <BladeRoot>
       <Drawer isOpen={isOpen} onDismiss={onDismiss}>
@@ -362,6 +681,21 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
                     </Text>
                   </BladeChatMessage>
 
+                  {/* Render Structured Response if available */}
+                  {msg.sender === "assistant" && msg.structured && (
+                    <StructuredResponseRenderer
+                      structured={msg.structured}
+                      onAddToCart={handleAddToCartAndCheckout}
+                      onBuyNow={(data) => {
+                        // For buy_now, we need to collect contact/shipping info first
+                        setPendingCheckoutItem(data as MatchedProduct);
+                        setActiveForm("contact");
+                      }}
+                      onCompareMore={() => handleSendMessage("Compare more options")}
+                      onAskShipping={() => setActiveForm("contact")}
+                    />
+                  )}
+
                   {/* Render Blade GenUI Cards if AI returned matched catalog products */}
                   {msg.sender === "assistant" &&
                     msg.matched_products &&
@@ -411,6 +745,96 @@ export default function AiChatDrawer({ isOpen, onDismiss, product }: Props) {
                 />
               )}
             </Box>
+
+              {activeForm === "contact" && (
+                <Box
+                  display="flex"
+                  flexDirection="column"
+                  gap="spacing.3"
+                  padding="spacing.3"
+                  backgroundColor="surface.background.gray.intense"
+                  borderRadius="medium"
+                >
+                  <Text size="small" weight="semibold">
+                    Almost there — a few details to place your order
+                  </Text>
+                  <TextInput
+                    label="Full name"
+                    value={cf.name}
+                    onChange={({ value }: any) => setCf((s) => ({ ...s, name: value || "" }))}
+                  />
+                  <TextInput
+                    label="Email"
+                    value={cf.email}
+                    onChange={({ value }: any) => setCf((s) => ({ ...s, email: value || "" }))}
+                  />
+                  <TextInput
+                    label="Phone"
+                    value={cf.phone}
+                    onChange={({ value }: any) => setCf((s) => ({ ...s, phone: value || "" }))}
+                  />
+                  <Button variant="primary" onClick={submitContact} isLoading={isTyping || isSubmitting}>
+                    Continue to shipping
+                  </Button>
+                </Box>
+              )}
+
+              {activeForm === "shipping" && (
+                <Box
+                  display="flex"
+                  flexDirection="column"
+                  gap="spacing.3"
+                  padding="spacing.3"
+                  backgroundColor="surface.background.gray.intense"
+                  borderRadius="medium"
+                >
+                  <Text size="small" weight="semibold">
+                    Where should we deliver?
+                  </Text>
+                  <TextInput
+                    label="Address"
+                    value={sf.line1}
+                    onChange={({ value }: any) => setSf((s) => ({ ...s, line1: value || "" }))}
+                  />
+                  <Box
+                    display="grid"
+                    gridTemplateColumns={{ base: "1fr", m: "1fr 1fr" }}
+                    gap="spacing.3"
+                  >
+                    <TextInput
+                      label="City"
+                      value={sf.city}
+                      onChange={({ value }: any) => setSf((s) => ({ ...s, city: value || "" }))}
+                    />
+                    <TextInput
+                      label="State"
+                      value={sf.state}
+                      onChange={({ value }: any) => setSf((s) => ({ ...s, state: value || "" }))}
+                    />
+                  </Box>
+                  <TextInput
+                    label="Pincode"
+                    value={sf.pincode}
+                    onChange={({ value }: any) => setSf((s) => ({ ...s, pincode: value || "" }))}
+                  />
+                  <Button variant="primary" onClick={submitShipping} isLoading={isTyping || isSubmitting}>
+                    Place order &amp; pay
+                  </Button>
+                </Box>
+              )}
+
+              {trackOrderId && (
+                <Box display="flex" justifyContent="center" padding="spacing.2">
+                  <Button
+                    variant="primary"
+                    icon={ShoppingCartIcon}
+                    iconPosition="left"
+                    onClick={() => router.push(`/store/track/${trackOrderId}`)}
+                  >
+                    Track order {trackOrderId.slice(0, 8).toUpperCase()}
+                  </Button>
+                </Box>
+              )}
 
             {/* Bottom Composer */}
             <Box

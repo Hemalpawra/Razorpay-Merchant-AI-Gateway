@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Box,
   Heading,
@@ -29,7 +30,12 @@ import {
   ShoppingBagIcon,
   TrendingUpIcon,
   PackageIcon,
+  AlertTriangleIcon,
+  Alert
 } from "@razorpay/blade/components";
+import { SourceBadge } from '../components/SourceBadge';
+import { RefundDrawer } from '../components/RefundDrawer';
+import { TrackingTimeline } from '../components/TrackingTimeline';
 import Link from "next/link";
 
 export type PaymentStatus =
@@ -56,7 +62,10 @@ export interface OrderItem {
   invoiceId: string;
   razorpayOrderId: string;
   createdAt: string;
+  rawSessionId?: string | null;
   rawOrder?: any;
+  refundStatus?: string;
+  refundId?: string;
 }
 
 const paymentStatusConfig: Record<
@@ -73,11 +82,21 @@ const paymentStatusConfig: Record<
 function OrderDetailDrawer({
   order,
   onClose,
+  onRefund,
+  onRetry,
 }: {
   order: OrderItem;
   onClose: () => void;
+  onRefund: () => void;
+  onRetry: () => void;
 }) {
   const payCfg = paymentStatusConfig[order.paymentStatus];
+
+  // Calculate tax/shipping (mocked for demo - 18% GST, free shipping over 500)
+  const baseAmount = parseFloat(order.amount.replace(/[^0-9.]/g, "")) || 0;
+  const tax = Math.round(baseAmount * 0.18);
+  const shipping = baseAmount > 500 ? 0 : 50;
+  const subtotal = baseAmount - tax - shipping;
 
   return (
     <Box
@@ -108,6 +127,11 @@ function OrderDetailDrawer({
           <Badge color={payCfg.color} size="small">
             {payCfg.label}
           </Badge>
+          {order.refundStatus && (
+            <Badge color="negative" size="small">
+              {order.refundStatus}
+            </Badge>
+          )}
         </Box>
         <IconButton
           icon={CloseIcon}
@@ -116,6 +140,19 @@ function OrderDetailDrawer({
           onClick={onClose}
         />
       </Box>
+
+      {/* Tracking Timeline */}
+      {order.paymentStatus === 'Paid' && (
+        <Card
+          elevation="none"
+          backgroundColor="surface.background.gray.subtle"
+          marginBottom="spacing.5"
+        >
+          <CardBody>
+            <TrackingTimeline status={order.orderStatus === 'Completed' ? 'delivered' : 'preparing'} />
+          </CardBody>
+        </Card>
+      )}
 
       <Card
         elevation="none"
@@ -154,11 +191,11 @@ function OrderDetailDrawer({
               </Box>
               <Box>
                 <Text size="xsmall" color="surface.text.gray.muted">
-                  Amount
+                  Source
                 </Text>
-                <Text size="small" weight="semibold" marginTop="spacing.1">
-                  {order.amount}
-                </Text>
+                <Box marginTop="spacing.1">
+                  <SourceBadge source={order.source} />
+                </Box>
               </Box>
               <Box>
                 <Text size="xsmall" color="surface.text.gray.muted">
@@ -168,6 +205,39 @@ function OrderDetailDrawer({
                   {order.createdAt}
                 </Text>
               </Box>
+            </Box>
+          </Box>
+        </CardBody>
+      </Card>
+
+      {/* Amount Breakdown */}
+      <Card
+        elevation="none"
+        backgroundColor="surface.background.gray.subtle"
+        marginBottom="spacing.5"
+      >
+        <CardBody>
+          <Text size="small" weight="semibold" color="surface.text.gray.muted" marginBottom="spacing.2">
+            Amount Breakdown
+          </Text>
+          <Box display="flex" flexDirection="column" gap="spacing.1">
+            <Box display="flex" justifyContent="space-between">
+              <Text size="xsmall" color="surface.text.gray.subtle">Subtotal</Text>
+              <Text size="xsmall" weight="medium">₹{subtotal.toLocaleString('en-IN')}</Text>
+            </Box>
+            <Box display="flex" justifyContent="space-between">
+              <Text size="xsmall" color="surface.text.gray.subtle">Tax (18% GST)</Text>
+              <Text size="xsmall" weight="medium">₹{tax.toLocaleString('en-IN')}</Text>
+            </Box>
+            <Box display="flex" justifyContent="space-between">
+              <Text size="xsmall" color="surface.text.gray.subtle">Shipping</Text>
+              <Text size="xsmall" weight="medium">
+                {shipping === 0 ? <span style={{ color: 'green' }}>FREE</span> : `₹${shipping.toLocaleString('en-IN')}`}
+              </Text>
+            </Box>
+            <Box display="flex" justifyContent="space-between" paddingTop="spacing.2" borderTopWidth="thin" borderTopColor="surface.border.gray.muted" marginTop="spacing.1">
+              <Text size="small" weight="semibold">Total</Text>
+              <Text size="small" weight="semibold">{order.amount}</Text>
             </Box>
           </Box>
         </CardBody>
@@ -226,6 +296,85 @@ function OrderDetailDrawer({
         </CardBody>
       </Card>
 
+      <Card
+        elevation="none"
+        backgroundColor="surface.background.gray.subtle"
+        marginBottom="spacing.5"
+      >
+        <CardBody>
+          <Box display="flex" flexDirection="column" gap="spacing.3">
+            <Text
+              size="small"
+              weight="semibold"
+              color="surface.text.gray.muted"
+            >
+              Actions
+            </Text>
+            
+            {/* Refund button - only for paid orders */}
+            {order.paymentStatus === 'Paid' && order.refundStatus !== 'processed' && (
+              <Button 
+                variant="tertiary" 
+                size="small" 
+                icon={RefreshIcon} 
+                iconPosition="left" 
+                isFullWidth
+                onClick={onRefund}
+              >
+                Refund Order
+              </Button>
+            )}
+            
+            {/* Retry payment - for pending/failed */}
+            {(order.paymentStatus === 'Pending' || order.paymentStatus === 'Failed') && (
+              <Button 
+                variant="primary" 
+                size="small" 
+                icon={RefreshIcon} 
+                iconPosition="left" 
+                isFullWidth
+                onClick={onRetry}
+              >
+                Retry Payment
+              </Button>
+            )}
+
+            {/* Refunded badge */}
+            {order.refundStatus === 'processed' && (
+              <Alert
+                color="positive"
+                title="Refund Processed"
+                description={`This order has been refunded. Refund ID: ${order.refundId || 'N/A'}`}
+                icon={CheckCircleIcon}
+              />
+            )}
+            
+            <Link href={`/store/order-success/${order.rawOrder?.id ?? order.id}`} passHref legacyBehavior>
+              <Button variant="secondary" size="small" icon={FileTextIcon} iconPosition="left" isFullWidth>
+                View Invoice &amp; Order Summary
+              </Button>
+            </Link>
+            {order.rawSessionId && (
+              <Link href={`/dashboard/ai-agent?session=${order.rawSessionId}`} passHref legacyBehavior>
+                <Button variant="secondary" size="small" icon={SparklesIcon} iconPosition="left" isFullWidth>
+                  Open Related Conversation
+                </Button>
+              </Link>
+            )}
+            <Link href={`/store/track/${order.rawOrder?.id ?? order.id}`} passHref legacyBehavior>
+              <Button variant="secondary" size="small" icon={ShoppingBagIcon} iconPosition="left" isFullWidth>
+                Track Shipment
+              </Button>
+            </Link>
+            <Link href="/dashboard/audit-trail" passHref legacyBehavior>
+              <Button variant="secondary" size="small" icon={ClockIcon} iconPosition="left" isFullWidth>
+                View Audit Trail
+              </Button>
+            </Link>
+          </Box>
+        </CardBody>
+      </Card>
+
       <Box marginTop="auto" display="flex" gap="spacing.3">
         <Button variant="tertiary" onClick={onClose} isFullWidth>
           Close
@@ -236,9 +385,25 @@ function OrderDetailDrawer({
 }
 
 export default function OrdersPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
+          <Text size="small" color="surface.text.gray.muted">Loading orders...</Text>
+        </Box>
+      }
+    >
+      <OrdersPageInner />
+    </Suspense>
+  );
+}
+
+function OrdersPageInner() {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<OrderItem | null>(null);
+  const [showRefundDrawer, setShowRefundDrawer] = useState(false);
+  const [refundOrderId, setRefundOrderId] = useState<string | null>(null);
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -250,27 +415,43 @@ export default function OrdersPage() {
           const cust = Array.isArray(o.customer_details)
             ? o.customer_details[0]
             : o.customer_details;
+          const session = Array.isArray(o.buyer_sessions)
+            ? o.buyer_sessions[0]
+            : o.buyer_sessions;
+          const source = session?.external_ai_name
+            ? session.external_ai_name
+            : o.session_id
+              ? "Merchant AI"
+              : "Human Customer";
+          const isPaid = o.status === "paid";
           return {
             id: o.id.substring(0, 8).toUpperCase(),
             sessionId: o.session_id
               ? o.session_id.substring(0, 8).toUpperCase()
               : "DIRECT",
-            customerName: cust?.full_name || "Customer",
+            customerName: cust?.full_name || session?.external_ai_name || "Customer",
             customerEmail: cust?.email || "customer@example.com",
             customerPhone: cust?.phone || "Not provided",
-            source: o.session_id ? "Store / AI Gateway" : "Direct checkout",
+            source,
             product:
               Array.isArray(o.order_items) && o.order_items.length
                 ? `${o.order_items[0].name}${o.order_items.length > 1 ? ` + ${o.order_items.length - 1} more` : ""}`
                 : "Catalog Order",
             amount: `₹${Number(o.amount).toLocaleString("en-IN")}`,
-            paymentStatus:
-              o.status === "paid"
-                ? "Paid"
-                : o.status === "draft"
-                  ? "Pending"
-                  : "Failed",
-            orderStatus: o.status === "paid" ? "Completed" : "Processing",
+            paymentStatus: isPaid
+              ? "Paid"
+              : o.status === "failed"
+                ? "Failed"
+                : o.status === "cancelled"
+                  ? "Cancelled"
+                  : "Pending",
+            orderStatus: isPaid
+              ? "Completed"
+              : o.status === "failed"
+                ? "Failed"
+                : o.status === "cancelled"
+                  ? "Cancelled"
+                  : "Pending Payment",
             invoiceId:
               Array.isArray(o.invoices) && o.invoices[0]?.invoice_number
                 ? o.invoices[0].invoice_number
@@ -280,7 +461,10 @@ export default function OrdersPage() {
               dateStyle: "medium",
               timeStyle: "short",
             }),
+            rawSessionId: o.session_id,
             rawOrder: o,
+            refundStatus: o.refund_status,
+            refundId: o.refund_id,
           };
         });
         setOrders(mapped);
@@ -296,12 +480,47 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
 
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const target = searchParams.get('order');
+    if (!target || orders.length === 0) return;
+    const match = orders.find(
+      (o) => o.rawOrder?.id === target || o.razorpayOrderId === target,
+    );
+    if (match) setSelectedOrder(match);
+  }, [searchParams, orders]);
+
   const totalRevenue = orders
     .filter((o) => o.paymentStatus === "Paid")
     .reduce(
       (sum, o) => sum + parseFloat(o.amount.replace(/[^0-9.]/g, "") || "0"),
       0,
     );
+
+  const handleRefund = (orderId: string) => {
+    setRefundOrderId(orderId);
+    setShowRefundDrawer(true);
+  };
+
+  const handleRetry = async (orderId: string) => {
+    try {
+      const res = await fetch('/api/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          type: 'retry'
+        })
+      });
+      const data = await res.json();
+      if (data.payment_link) {
+        alert(`Payment link generated: ${data.payment_link}\n\nIn production, this would be sent to the customer via email/SMS.`);
+      }
+      fetchOrders();
+    } catch (err: any) {
+      alert('Failed to retry payment: ' + err.message);
+    }
+  };
 
   return (
     <Box
@@ -341,7 +560,7 @@ export default function OrdersPage() {
         gridTemplateColumns={{
           base: "1fr",
           m: "repeat(2,1fr)",
-          l: "repeat(4,1fr)",
+          l: "repeat(5,1fr)",
         }}
         gap="spacing.4"
         marginBottom="spacing.6"
@@ -405,6 +624,23 @@ export default function OrdersPage() {
               weight="semibold"
               color="surface.text.gray.muted"
             >
+              Failed Orders
+            </Text>
+            <Heading size="xlarge">
+              {orders.filter((o) => o.paymentStatus === "Failed" || o.orderStatus === "Failed").length}
+            </Heading>
+          </CardBody>
+        </Card>
+        <Card
+          elevation="none"
+          backgroundColor="surface.background.gray.intense"
+        >
+          <CardBody>
+            <Text
+              size="xsmall"
+              weight="semibold"
+              color="surface.text.gray.muted"
+            >
               Total Revenue
             </Text>
             <Heading size="xlarge">{`₹${totalRevenue.toLocaleString("en-IN")}`}</Heading>
@@ -415,9 +651,11 @@ export default function OrdersPage() {
       {/* Orders Table */}
       <Card elevation="none" backgroundColor="surface.background.gray.intense">
         <CardBody>
+          <Box overflowX="auto">
           <Box
             display="grid"
-            gridTemplateColumns="1fr 1.2fr 2fr 1fr 1fr 1fr auto"
+            minWidth="900px"
+            gridTemplateColumns="0.8fr 1fr 0.8fr 1.4fr 0.8fr 0.8fr 0.9fr 1fr auto"
             gap="spacing.4"
             paddingY="spacing.3"
             paddingX="spacing.4"
@@ -444,7 +682,14 @@ export default function OrdersPage() {
               weight="semibold"
               color="surface.text.gray.muted"
             >
-              RAZORPAY ID
+              SOURCE
+            </Text>
+            <Text
+              size="xsmall"
+              weight="semibold"
+              color="surface.text.gray.muted"
+            >
+              PRODUCT
             </Text>
             <Text
               size="xsmall"
@@ -458,7 +703,14 @@ export default function OrdersPage() {
               weight="semibold"
               color="surface.text.gray.muted"
             >
-              STATUS
+              PAYMENT
+            </Text>
+            <Text
+              size="xsmall"
+              weight="semibold"
+              color="surface.text.gray.muted"
+            >
+              ORDER STATUS
             </Text>
             <Text
               size="xsmall"
@@ -490,7 +742,7 @@ export default function OrdersPage() {
               </Text>
             </Box>
           ) : (
-            <Box display="flex" flexDirection="column">
+            <Box display="flex" flexDirection="column" minWidth="900px">
               {orders.map((order, index) => (
                 <Box
                   key={order.id}
@@ -501,7 +753,7 @@ export default function OrdersPage() {
                   }
                   borderBottomColor="surface.border.gray.muted"
                   display="grid"
-                  gridTemplateColumns="1fr 1.2fr 2fr 1fr 1fr 1fr auto"
+                  gridTemplateColumns="0.8fr 1fr 0.8fr 1.4fr 0.8fr 0.8fr 0.9fr 1fr auto"
                   gap="spacing.4"
                   alignItems="center"
                 >
@@ -512,11 +764,17 @@ export default function OrdersPage() {
                   >
                     {order.id}
                   </Text>
-                  <Text size="small" weight="semibold">
-                    {order.customerName}
-                  </Text>
+                  <Box display="flex" flexDirection="column" gap="spacing.1">
+                    <Text size="small" weight="semibold">
+                      {order.customerName}
+                    </Text>
+                    <Text size="xsmall" color="surface.text.gray.subtle">
+                      Session: {order.sessionId}
+                    </Text>
+                  </Box>
+                  <SourceBadge source={order.source} />
                   <Text size="xsmall" color="surface.text.gray.subtle">
-                    {order.razorpayOrderId}
+                    {order.product}
                   </Text>
                   <Text size="small" weight="semibold">
                     {order.amount}
@@ -527,6 +785,22 @@ export default function OrdersPage() {
                       size="small"
                     >
                       {paymentStatusConfig[order.paymentStatus].label}
+                    </Badge>
+                  </Box>
+                  <Box>
+                    <Badge
+                      color={
+                        order.orderStatus === "Completed"
+                          ? "positive"
+                          : order.orderStatus === "Failed"
+                            ? "negative"
+                            : order.orderStatus === "Cancelled"
+                              ? "neutral"
+                              : "notice"
+                      }
+                      size="small"
+                    >
+                      {order.orderStatus}
                     </Badge>
                   </Box>
                   <Text size="xsmall" color="surface.text.gray.muted">
@@ -550,6 +824,7 @@ export default function OrdersPage() {
               ))}
             </Box>
           )}
+          </Box>
         </CardBody>
       </Card>
 
@@ -557,6 +832,24 @@ export default function OrdersPage() {
         <OrderDetailDrawer
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
+          onRefund={() => handleRefund(selectedOrder.id)}
+          onRetry={() => handleRetry(selectedOrder.id)}
+        />
+      )}
+
+      {showRefundDrawer && refundOrderId && (
+        <RefundDrawer
+          order={{
+            id: refundOrderId,
+            amount: parseFloat(selectedOrder?.amount.replace(/[^0-9.]/g, '') || '0'),
+            status: selectedOrder?.paymentStatus || 'Pending',
+            customerName: selectedOrder?.customerName || ''
+          }}
+          onClose={() => {
+            setShowRefundDrawer(false);
+            setRefundOrderId(null);
+            fetchOrders();
+          }}
         />
       )}
     </Box>

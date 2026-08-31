@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   Box,
   Heading,
@@ -8,11 +8,8 @@ import {
   Button,
   Card,
   CardBody,
-  Badge,
-  Alert,
   // Icons
   FileTextIcon,
-  SaveIcon,
   ChevronRightIcon,
   PackageIcon,
   SparklesIcon,
@@ -103,13 +100,6 @@ const SETTING_CARDS = [
 ];
 
 export default function SettingsHubPage() {
-  const [savedNotice, setSavedNotice] = useState(false);
-
-  const handleSaveAll = () => {
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
-  };
-
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
 
@@ -127,23 +117,8 @@ export default function SettingsHubPage() {
               View audit trail
             </Button>
           </Link>
-          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSaveAll}>
-            Save all changes
-          </Button>
         </Box>
       </Box>
-
-      {savedNotice && (
-        <Box marginBottom="spacing.6">
-          <Alert
-            title="Settings Saved"
-            description="All store configuration and business preferences have been updated."
-            color="positive"
-            isDismissible
-            onDismiss={() => setSavedNotice(false)}
-          />
-        </Box>
-      )}
 
       {/* 3x3 Grid of Setting Cards */}
       <Box

@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     const category = searchParams.get('category');
     const status = searchParams.get('status') || 'active';
     const search = searchParams.get('search');
+    const aiVisible = searchParams.get('ai_visibility');
 
     const supabase = await createClient();
 
@@ -26,6 +27,9 @@ export async function GET(request: Request) {
     if (search) {
       query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,sku.ilike.%${search}%`);
     }
+    if (aiVisible === 'true') {
+      query = query.eq('meta_json->>ai_visibility', 'true');
+    }
 
     query = query.order('created_at', { ascending: false });
 
@@ -35,7 +39,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ products: products || [] });
+    const response = NextResponse.json({ products: products || [] });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    return response;
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

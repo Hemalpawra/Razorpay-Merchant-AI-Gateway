@@ -7,6 +7,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const merchantId = searchParams.get('merchant_id');
     const orderId = searchParams.get('order_id');
+    const sessionId = searchParams.get('session_id');
     const status = searchParams.get('status');
 
     const supabase = await createClient();
@@ -18,12 +19,18 @@ export async function GET(request: Request) {
         customer_details (*),
         buyer_sessions (*),
         order_items (*),
-        invoices (*)
+        invoices (*),
+        refund_status,
+        refund_amount,
+        refunded_at
       `)
       .order('created_at', { ascending: false });
 
     if (orderId) {
       query = query.or(`id.eq.${orderId},razorpay_order_id.eq.${orderId}`);
+    }
+    if (sessionId) {
+      query = query.eq('session_id', sessionId);
     }
     if (merchantId) {
       query = query.eq('merchant_id', merchantId);

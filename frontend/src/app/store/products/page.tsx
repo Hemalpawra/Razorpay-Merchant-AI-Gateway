@@ -6,16 +6,24 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   Amount,
+  ActionList,
+  ActionListItem,
   Badge,
   Box,
   Button,
   Card,
   CardBody,
+  Checkbox,
   CheckCircleIcon,
   ChevronRightIcon,
+  Dropdown,
+  DropdownOverlay,
   Heading,
   Indicator,
+  Radio,
+  RadioGroup,
   RefreshIcon,
+  SelectInput,
   ShieldIcon,
   SparklesIcon,
   StarIcon,
@@ -30,6 +38,7 @@ import { BladeRoot } from "../components/BladeRoot";
 import { SiteHeader } from "../components/SiteHeader";
 import { ProductCard } from "../components/ProductCard";
 import { useAiChat } from "../components/StoreAiProvider";
+import { ActiveFilterChip } from "../components/ActiveFilterChips";
 import {
   categories,
   categoryName,
@@ -172,37 +181,35 @@ function ProductsContent() {
 
                     {/* Category Filter */}
                     <Box display="flex" flexDirection="column" gap="spacing.2">
-                      <Text size="xsmall" weight="semibold">
-                        Category
-                      </Text>
-                      <select
-                        value={category}
-                        onChange={(e) => updateSearch({ category: e.target.value, page: "1" })}
-                        style={{
-                          width: "100%",
-                          padding: "8px",
-                          borderRadius: "6px",
-                          border: "1px solid #cbd5e1",
-                          fontSize: "13px",
-                          background: "#fff",
-                        }}
-                      >
-                        <option value="">All Categories</option>
-                        {categories.map((c) => (
-                          <option key={c.slug} value={c.slug}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
+                      <Dropdown selectionType="single">
+                        <SelectInput
+                          label="Category"
+                          placeholder="All Categories"
+                          value={category}
+                          onChange={({ values }) =>
+                            updateSearch({ category: values[0] ?? "", page: "1" })
+                          }
+                        />
+                        <DropdownOverlay>
+                          <ActionList>
+                            <ActionListItem title="All Categories" value="" />
+                            {categories.map((c) => (
+                              <ActionListItem key={c.slug} title={c.name} value={c.slug} />
+                            ))}
+                          </ActionList>
+                        </DropdownOverlay>
+                      </Dropdown>
                     </Box>
 
                     {/* Price Range Filter */}
                     <Box display="flex" flexDirection="column" gap="spacing.2">
                       <Text size="xsmall" weight="semibold">
-                        Price Range
+                        Price Range (max {formatPrice(MAX_PRICE)})
                       </Text>
                       <input
                         type="range"
+                        aria-label="Maximum price"
+                        aria-valuetext={formatPrice(Number(priceInput))}
                         min={499}
                         max={MAX_PRICE}
                         step={500}
@@ -229,34 +236,30 @@ function ProductsContent() {
                       </Text>
                       <Box display="flex" flexDirection="column" gap="spacing.2" maxHeight="160px" overflow="auto">
                         {brands.map((b) => (
-                          <label key={b} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                            <input
-                              type="checkbox"
-                              checked={selectedBrands.includes(b)}
-                              onChange={() => toggleBrand(b)}
-                            />
+                          <Checkbox
+                            key={b}
+                            isChecked={selectedBrands.includes(b)}
+                            onChange={() => toggleBrand(b)}
+                          >
                             {b}
-                          </label>
+                          </Checkbox>
                         ))}
                       </Box>
                     </Box>
 
                     {/* Rating Filter */}
                     <Box display="flex" flexDirection="column" gap="spacing.2">
-                      <Text size="xsmall" weight="semibold">
-                        Customer Rating
-                      </Text>
-                      {[4.5, 4, 3.5].map((r) => (
-                        <label key={r} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                          <input
-                            type="radio"
-                            name="rating"
-                            checked={minRating === r}
-                            onChange={() => updateSearch({ minRating: String(r), page: "1" })}
-                          />
-                          {r}★ &amp; above
-                        </label>
-                      ))}
+                      <RadioGroup
+                        label="Customer Rating"
+                        value={String(minRating)}
+                        onChange={({ value }) =>
+                          updateSearch({ minRating: String(value), page: "1" })
+                        }
+                      >
+                        <Radio value="4.5">4.5★ &amp; above</Radio>
+                        <Radio value="4">4★ &amp; above</Radio>
+                        <Radio value="3.5">3.5★ &amp; above</Radio>
+                      </RadioGroup>
                     </Box>
 
                     {/* Availability */}
@@ -264,22 +267,22 @@ function ProductsContent() {
                       <Text size="xsmall" weight="semibold">
                         Availability &amp; Offers
                       </Text>
-                      <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={inStock}
-                          onChange={(e) => updateSearch({ inStock: e.target.checked ? "true" : undefined, page: "1" })}
-                        />
+                      <Checkbox
+                        isChecked={inStock}
+                        onChange={({ isChecked }) =>
+                          updateSearch({ inStock: isChecked ? "true" : undefined, page: "1" })
+                        }
+                      >
                         In Stock Only
-                      </label>
-                      <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", cursor: "pointer" }}>
-                        <input
-                          type="checkbox"
-                          checked={onSale}
-                          onChange={(e) => updateSearch({ onSale: e.target.checked ? "true" : undefined, page: "1" })}
-                        />
+                      </Checkbox>
+                      <Checkbox
+                        isChecked={onSale}
+                        onChange={({ isChecked }) =>
+                          updateSearch({ onSale: isChecked ? "true" : undefined, page: "1" })
+                        }
+                      >
                         On Sale Only
-                      </label>
+                      </Checkbox>
                     </Box>
 
                     <Button variant="secondary" size="small" isFullWidth onClick={clearAll}>
@@ -327,6 +330,62 @@ function ProductsContent() {
                     ))}
                   </select>
                 </Box>
+              </Box>
+
+              {/* Active Filter Chips */}
+              <Box display="flex" flexDirection="row" gap="spacing.2" flexWrap="wrap" alignItems="center">
+                <Text size="xsmall" color="surface.text.gray.muted" weight="semibold">
+                  Active filters:
+                </Text>
+                
+                <ActiveFilterChip
+                  label="Search"
+                  type="search"
+                  value={q}
+                  onRemove={() => updateSearch({ q: "" })}
+                />
+                <ActiveFilterChip
+                  label="Category"
+                  type="category"
+                  value={category}
+                  onRemove={() => updateSearch({ category: "" })}
+                />
+                <ActiveFilterChip
+                  label="Brand"
+                  type="brand"
+                  value={selectedBrands}
+                  onRemove={() => updateSearch({ brand: [] })}
+                />
+                <ActiveFilterChip
+                  label="Max Price"
+                  type="price"
+                  value={maxPrice !== MAX_PRICE ? String(maxPrice) : null}
+                  onRemove={() => updateSearch({ maxPrice: String(MAX_PRICE) })}
+                />
+                <ActiveFilterChip
+                  label="Min Rating"
+                  type="rating"
+                  value={minRating > 0 ? String(minRating) : null}
+                  onRemove={() => updateSearch({ minRating: "" })}
+                />
+                <ActiveFilterChip
+                  label="In Stock"
+                  type="availability"
+                  value={inStock ? "true" : null}
+                  onRemove={() => updateSearch({ inStock: undefined })}
+                />
+                <ActiveFilterChip
+                  label="On Sale"
+                  type="availability"
+                  value={onSale ? "true" : null}
+                  onRemove={() => updateSearch({ onSale: undefined })}
+                />
+                
+                {(q || category || selectedBrands.length > 0 || maxPrice !== MAX_PRICE || minRating > 0 || inStock || onSale) && (
+                  <Button variant="tertiary" size="xsmall" onClick={clearAll}>
+                    Clear all
+                  </Button>
+                )}
               </Box>
 
               {/* Products Cards */}

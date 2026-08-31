@@ -10,6 +10,11 @@ import {
   CardBody,
   Badge,
   Alert,
+  Modal,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  TextInput,
   // Icons
   ChevronRightIcon,
   AlertTriangleIcon,
@@ -19,12 +24,45 @@ import {
 } from '@razorpay/blade/components';
 import Link from 'next/link';
 
-export default function DangerZonePage() {
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
+const DANGER_ACTIONS = [
+  {
+    key: 'Delete All Test Data',
+    desc: 'Permanently remove all test orders, conversation logs, and generated invoices created during testing.',
+    icon: TrashIcon,
+  },
+  {
+    key: 'Reset AI Agent Data',
+    desc: 'Reset the AI assistant to factory defaults, clearing fine-tuned rules and prompt memory.',
+    icon: RefreshIcon,
+  },
+  {
+    key: 'Clear Cache',
+    desc: 'Purge temporary session caches and catalog indexing files to force re-synchronization.',
+    icon: RefreshIcon,
+  },
+  {
+    key: 'Deactivate Store',
+    desc: 'Temporarily pause store operations and disable the AI assistant from accepting new orders.',
+    icon: CloseIcon,
+  },
+  {
+    key: 'Delete Store Permanently',
+    desc: 'Permanently delete this merchant store, products, orders, and integration credentials. This cannot be reversed.',
+    icon: TrashIcon,
+  },
+];
 
-  const triggerAction = (actionName: string) => {
-    setActionNotice(`Action executed: ${actionName}`);
-    setTimeout(() => setActionNotice(null), 4000);
+export default function DangerZonePage() {
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [confirmText, setConfirmText] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const confirm = () => {
+    if (confirmText !== pendingAction) return;
+    const action = pendingAction;
+    setPendingAction(null);
+    setConfirmText('');
+    setNotice(action);
   };
 
   return (
@@ -52,14 +90,14 @@ export default function DangerZonePage() {
         </Link>
       </Box>
 
-      {actionNotice && (
+      {notice && (
         <Box marginBottom="spacing.6">
           <Alert
-            title="Administrative Action Executed"
-            description={actionNotice}
+            title="Action not executed (Demo mode)"
+            description={`No backend handler is wired for "${notice}", so nothing was changed. Implement an API route to perform this action for real.`}
             color="notice"
             isDismissible
-            onDismiss={() => setActionNotice(null)}
+            onDismiss={() => setNotice(null)}
           />
         </Box>
       )}
@@ -76,93 +114,67 @@ export default function DangerZonePage() {
 
       {/* Stacked Warning Cards */}
       <Box display="flex" flexDirection="column" gap="spacing.4">
-
-        {/* 1. Delete All Test Data */}
-        <Card elevation="none" backgroundColor="surface.background.gray.intense">
-          <CardBody>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Box display="flex" flexDirection="column" gap="spacing.1">
-                <Text size="medium" weight="semibold">Delete All Test Data</Text>
-                <Text size="xsmall" color="surface.text.gray.muted">
-                  Permanently remove all test orders, conversation logs, and generated invoices created during testing.
-                </Text>
+        {DANGER_ACTIONS.map((action) => (
+          <Card key={action.key} elevation="none" backgroundColor="surface.background.gray.intense">
+            <CardBody>
+              <Box display="flex" justifyContent="space-between" alignItems="center">
+                <Box display="flex" flexDirection="column" gap="spacing.1">
+                  <Text size="medium" weight="semibold">{action.key}</Text>
+                  <Text size="xsmall" color="surface.text.gray.muted">{action.desc}</Text>
+                </Box>
+                <Button
+                  variant="secondary"
+                  color="negative"
+                  icon={action.icon}
+                  iconPosition="left"
+                  onClick={() => {
+                    setNotice(null);
+                    setConfirmText('');
+                    setPendingAction(action.key);
+                  }}
+                >
+                  {action.key}
+                </Button>
               </Box>
-              <Button variant="secondary" icon={TrashIcon} iconPosition="left" onClick={() => triggerAction('Delete All Test Data')}>
-                Delete All Test Data
-              </Button>
-            </Box>
-          </CardBody>
-        </Card>
-
-        {/* 2. Reset AI Agent Data */}
-        <Card elevation="none" backgroundColor="surface.background.gray.intense">
-          <CardBody>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Box display="flex" flexDirection="column" gap="spacing.1">
-                <Text size="medium" weight="semibold">Reset AI Agent Data</Text>
-                <Text size="xsmall" color="surface.text.gray.muted">
-                  Reset the AI assistant to factory defaults, clearing fine-tuned rules and prompt memory.
-                </Text>
-              </Box>
-              <Button variant="secondary" icon={RefreshIcon} iconPosition="left" onClick={() => triggerAction('Reset AI Agent Data')}>
-                Reset AI Agent Data
-              </Button>
-            </Box>
-          </CardBody>
-        </Card>
-
-        {/* 3. Clear Cache & Temp Files */}
-        <Card elevation="none" backgroundColor="surface.background.gray.intense">
-          <CardBody>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Box display="flex" flexDirection="column" gap="spacing.1">
-                <Text size="medium" weight="semibold">Clear Cache & Temporary Files</Text>
-                <Text size="xsmall" color="surface.text.gray.muted">
-                  Purge temporary session caches and catalog indexing files to force re-synchronization.
-                </Text>
-              </Box>
-              <Button variant="secondary" onClick={() => triggerAction('Clear Cache')}>
-                Clear Cache
-              </Button>
-            </Box>
-          </CardBody>
-        </Card>
-
-        {/* 4. Deactivate Store */}
-        <Card elevation="none" backgroundColor="surface.background.gray.intense">
-          <CardBody>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Box display="flex" flexDirection="column" gap="spacing.1">
-                <Text size="medium" weight="semibold">Deactivate Store</Text>
-                <Text size="xsmall" color="surface.text.gray.muted">
-                  Temporarily pause store operations and disable the AI assistant from accepting new orders.
-                </Text>
-              </Box>
-              <Button variant="secondary" icon={CloseIcon} iconPosition="left" onClick={() => triggerAction('Deactivate Store')}>
-                Deactivate Store
-              </Button>
-            </Box>
-          </CardBody>
-        </Card>
-
-        {/* 5. Delete Store Permanently */}
-        <Card elevation="none" backgroundColor="surface.background.gray.intense">
-          <CardBody>
-            <Box display="flex" justifyContent="space-between" alignItems="center">
-              <Box display="flex" flexDirection="column" gap="spacing.1">
-                <Text size="medium" weight="semibold" color="interactive.text.negative.normal">Delete Store Permanently</Text>
-                <Text size="xsmall" color="surface.text.gray.muted">
-                  Permanently delete this merchant store, products, orders, and integration credentials. This cannot be reversed.
-                </Text>
-              </Box>
-              <Button variant="secondary" icon={TrashIcon} iconPosition="left" onClick={() => triggerAction('Delete Store Permanently')}>
-                Delete Store Permanently
-              </Button>
-            </Box>
-          </CardBody>
-        </Card>
-
+            </CardBody>
+          </Card>
+        ))}
       </Box>
+
+      <Modal
+        isOpen={!!pendingAction}
+        onDismiss={() => setPendingAction(null)}
+        accessibilityLabel="Confirm dangerous action"
+      >
+        <ModalHeader
+          title={`Confirm: ${pendingAction ?? ''}`}
+          subtitle="This is a high-risk, potentially irreversible action."
+        />
+        <ModalBody>
+          <Box display="flex" flexDirection="column" gap="spacing.4">
+            <Text size="small" color="surface.text.gray.normal">
+              Type <Text weight="semibold">{pendingAction}</Text> below to enable the confirm button.
+            </Text>
+            <TextInput
+              label="Confirmation"
+              placeholder={pendingAction ?? ''}
+              value={confirmText}
+              onChange={({ value }) => setConfirmText(value || '')}
+            />
+          </Box>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="tertiary" onClick={() => setPendingAction(null)}>Cancel</Button>
+          <Button
+            variant="secondary"
+            color="negative"
+            isDisabled={confirmText !== pendingAction}
+            onClick={confirm}
+          >
+            Confirm
+          </Button>
+        </ModalFooter>
+      </Modal>
 
     </Box>
   );

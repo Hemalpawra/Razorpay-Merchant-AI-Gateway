@@ -24,33 +24,86 @@ import {
   ShieldIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { useMerchantSettings } from '../use-merchant-settings';
 
 export default function CheckoutPreferencesPage() {
-  const [checkoutMode, setCheckoutMode] = useState<'one' | 'multi'>('one');
-  const [guestCheckout, setGuestCheckout] = useState(true);
-  const [autoCoupons, setAutoCoupons] = useState(true);
+  const { settings, merchant, loading, saving, error, savedNotice, saveSettings } = useMerchantSettings();
 
-  const [reqName, setReqName] = useState(true);
-  const [reqEmail, setReqEmail] = useState(true);
-  const [reqPhone, setReqPhone] = useState(true);
-  const [reqAddress, setReqAddress] = useState(true);
+  const [checkoutMode, setCheckoutMode] = useState<'one' | 'multi'>(settings.checkout_mode === 'one' || settings.checkout_mode === 'multi' ? settings.checkout_mode : 'one');
+  const [guestCheckout, setGuestCheckout] = useState(settings.guest_checkout ?? true);
+  const [autoCoupons, setAutoCoupons] = useState(settings.auto_coupons ?? true);
 
-  const [payCards, setPayCards] = useState(true);
-  const [payUPI, setPayUPI] = useState(true);
-  const [payNetbanking, setPayNetbanking] = useState(true);
-  const [payWallets, setPayWallets] = useState(true);
-  const [payBNPL, setPayBNPL] = useState(true);
+  const [reqName, setReqName] = useState(settings.req_name ?? true);
+  const [reqEmail, setReqEmail] = useState(settings.req_email ?? true);
+  const [reqPhone, setReqPhone] = useState(settings.req_phone ?? true);
+  const [reqAddress, setReqAddress] = useState(settings.req_address ?? true);
 
-  const [showThumbnails, setShowThumbnails] = useState(true);
-  const [editableCart, setEditableCart] = useState(true);
-  const [showDelivery, setShowDelivery] = useState(true);
-  const [showTrustBadges, setShowTrustBadges] = useState(true);
+  const [payCards, setPayCards] = useState(settings.pay_cards ?? true);
+  const [payUPI, setPayUPI] = useState(settings.pay_upi ?? true);
+  const [payNetbanking, setPayNetbanking] = useState(settings.pay_netbanking ?? true);
+  const [payWallets, setPayWallets] = useState(settings.pay_wallets ?? true);
+  const [payBNPL, setPayBNPL] = useState(settings.pay_bnpl ?? true);
 
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [showThumbnails, setShowThumbnails] = useState(settings.show_thumbnails ?? true);
+  const [editableCart, setEditableCart] = useState(settings.editable_cart ?? true);
+  const [showTrustBadges, setShowTrustBadges] = useState(settings.show_trust_badges ?? true);
 
-  const handleSave = () => {
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
+  const [addressOptions, setAddressOptions] = useState(settings.address_options || 'saved');
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState(settings.default_payment_method || 'upi');
+  const [phoneValidation, setPhoneValidation] = useState(settings.phone_validation ?? true);
+  const [emailValidation, setEmailValidation] = useState(settings.email_validation ?? true);
+
+  const [localSaved, setLocalSaved] = useState(false);
+
+  const didInit = React.useRef(false);
+  React.useEffect(() => {
+    if (didInit.current || !merchant) return;
+    didInit.current = true;
+    setCheckoutMode(settings.checkout_mode === 'one' || settings.checkout_mode === 'multi' ? settings.checkout_mode : 'one');
+    setGuestCheckout(settings.guest_checkout ?? true);
+    setAutoCoupons(settings.auto_coupons ?? true);
+    setReqName(settings.req_name ?? true);
+    setReqEmail(settings.req_email ?? true);
+    setReqPhone(settings.req_phone ?? true);
+    setReqAddress(settings.req_address ?? true);
+    setPayCards(settings.pay_cards ?? true);
+    setPayUPI(settings.pay_upi ?? true);
+    setPayNetbanking(settings.pay_netbanking ?? true);
+    setPayWallets(settings.pay_wallets ?? true);
+    setPayBNPL(settings.pay_bnpl ?? true);
+    setShowThumbnails(settings.show_thumbnails ?? true);
+    setEditableCart(settings.editable_cart ?? true);
+    setShowTrustBadges(settings.show_trust_badges ?? true);
+    setAddressOptions(settings.address_options || 'saved');
+    setDefaultPaymentMethod(settings.default_payment_method || 'upi');
+    setPhoneValidation(settings.phone_validation ?? true);
+    setEmailValidation(settings.email_validation ?? true);
+  }, [merchant, settings]);
+
+  const handleSave = async () => {
+    await saveSettings({
+      checkout_mode: checkoutMode,
+      guest_checkout: guestCheckout,
+      auto_coupons: autoCoupons,
+      req_name: reqName,
+      req_email: reqEmail,
+      req_phone: reqPhone,
+      req_address: reqAddress,
+      pay_cards: payCards,
+      pay_upi: payUPI,
+      pay_netbanking: payNetbanking,
+      pay_wallets: payWallets,
+      pay_bnpl: payBNPL,
+      show_thumbnails: showThumbnails,
+      editable_cart: editableCart,
+      show_trust_badges: showTrustBadges,
+      address_options: addressOptions,
+      default_payment_method: defaultPaymentMethod,
+      phone_validation: phoneValidation,
+      email_validation: emailValidation,
+    });
+    setLocalSaved(true);
+    setTimeout(() => setLocalSaved(false), 3000);
   };
 
   return (
@@ -77,21 +130,27 @@ export default function CheckoutPreferencesPage() {
           <Link href="/dashboard/settings" style={{ textDecoration: 'none' }}>
             <Button variant="tertiary">Cancel</Button>
           </Link>
-          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave}>
+          <Button variant="primary" icon={SaveIcon} iconPosition="left" onClick={handleSave} isLoading={saving}>
             Save changes
           </Button>
         </Box>
       </Box>
 
-      {savedNotice && (
+      {(savedNotice || localSaved) && (
         <Box marginBottom="spacing.6">
           <Alert
             title="Checkout Preferences Saved"
             description="Your customer checkout flow and Razorpay payment options have been updated."
             color="positive"
             isDismissible
-            onDismiss={() => setSavedNotice(false)}
+            onDismiss={() => setLocalSaved(false)}
           />
+        </Box>
+      )}
+
+      {error && (
+        <Box marginBottom="spacing.6">
+          <Alert title="Error" description={error} color="negative" isDismissible />
         </Box>
       )}
 
@@ -183,18 +242,18 @@ export default function CheckoutPreferencesPage() {
                   </Box>
 
                   <Box display="flex" flexDirection="column" gap="spacing.3">
-                    <Dropdown>
-                      <SelectInput label="Address options" placeholder="Show saved addresses" />
+                    <Dropdown selectionType="single">
+                      <SelectInput label="Address options" placeholder="Show saved addresses" value={addressOptions} onChange={({ values }) => setAddressOptions(values[0])} />
                       <DropdownOverlay>
                         <ActionList>
-                          <ActionListItem title="Show saved addresses" value="saved" onClick={() => {}} />
-                          <ActionListItem title="Allow new address entry" value="new" onClick={() => {}} />
+                          <ActionListItem title="Show saved addresses" value="saved" />
+                          <ActionListItem title="Allow new address entry" value="new" />
                         </ActionList>
                       </DropdownOverlay>
                     </Dropdown>
 
-                    <Checkbox isChecked={true} onChange={() => {}}>Phone number validation</Checkbox>
-                    <Checkbox isChecked={true} onChange={() => {}}>Email validation</Checkbox>
+                    <Checkbox isChecked={phoneValidation} onChange={({ isChecked }) => setPhoneValidation(isChecked)}>Phone number validation</Checkbox>
+                    <Checkbox isChecked={emailValidation} onChange={({ isChecked }) => setEmailValidation(isChecked)}>Email validation</Checkbox>
                   </Box>
                 </Box>
               </Box>
@@ -218,15 +277,15 @@ export default function CheckoutPreferencesPage() {
                   </Box>
 
                   <Box display="flex" flexDirection="column" gap="spacing.3">
-                    <Dropdown>
-                      <SelectInput label="Default payment method" placeholder="UPI" />
-                      <DropdownOverlay>
-                        <ActionList>
-                          <ActionListItem title="UPI" value="upi" onClick={() => {}} />
-                          <ActionListItem title="Cards" value="cards" onClick={() => {}} />
-                        </ActionList>
-                      </DropdownOverlay>
-                    </Dropdown>
+                  <Dropdown selectionType="single">
+                    <SelectInput label="Default payment method" placeholder="UPI" value={defaultPaymentMethod} onChange={({ values }) => setDefaultPaymentMethod(values[0])} />
+                    <DropdownOverlay>
+                      <ActionList>
+                        <ActionListItem title="UPI" value="upi" />
+                        <ActionListItem title="Cards" value="cards" />
+                      </ActionList>
+                    </DropdownOverlay>
+                  </Dropdown>
                   </Box>
 
                   <Box display="flex" flexDirection="column" gap="spacing.2">

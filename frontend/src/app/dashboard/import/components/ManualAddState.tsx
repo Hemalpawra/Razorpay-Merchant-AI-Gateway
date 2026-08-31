@@ -41,8 +41,7 @@ export function ManualAddState({
   const [status, setStatus] = useState('Active');
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!name || !sku || !price) {
       alert('Please fill in Product Name, SKU Code, and Price.');
       return;
@@ -254,7 +253,7 @@ export function ManualAddState({
                 <Button variant="secondary" onClick={onCancel}>
                   Cancel
                 </Button>
-                <Button variant="primary" icon={PlusIcon} iconPosition="left" onClick={handleSubmit as any}>
+                <Button variant="primary" icon={PlusIcon} iconPosition="left" onClick={handleSubmit}>
                   Save Product
                 </Button>
               </Box>

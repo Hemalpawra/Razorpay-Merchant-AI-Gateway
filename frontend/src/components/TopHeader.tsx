@@ -11,22 +11,31 @@ import {
   BellIcon, 
   HelpCircleIcon, 
   RazorpayIcon,
-  SparklesIcon
+  SparklesIcon,
+  MenuIcon
 } from '@razorpay/blade/components';
 
-export function TopHeader() {
+export function TopHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <Box 
       height="56px" 
-      paddingX="spacing.6"
+      paddingX={{ base: 'spacing.4', m: 'spacing.6' }}
       display="flex" 
       alignItems="center" 
       justifyContent="space-between"
+      gap="spacing.2"
       backgroundColor="surface.background.primary.intense"
     >
       {/* Left: Brand Identity & AI Gateway Tag */}
-      <Box display="flex" alignItems="center" gap="spacing.4">
-        <Box display="flex" alignItems="center" gap="spacing.2">
+      <Box display="flex" alignItems="center" gap="spacing.4" flex={1} minWidth="0px">
+        <IconButton
+          icon={MenuIcon}
+          accessibilityLabel="Open navigation menu"
+          size="medium"
+          display={{ base: 'flex', l: 'none' }}
+          onClick={() => onMenuClick?.()}
+        />
+        <Box display="flex" alignItems="center" gap="spacing.2" minWidth="0px">
           <RazorpayIcon color="interactive.icon.primary.subtle" size="medium" />
           <Text weight="semibold" size="medium" color="surface.text.staticWhite.normal">
             Razorpay
@@ -61,7 +70,7 @@ export function TopHeader() {
       </Box>
 
       {/* Right: Actions & User Info */}
-      <Box display="flex" alignItems="center" gap="spacing.4">
+      <Box display="flex" alignItems="center" gap="spacing.4" flexShrink={0} minWidth="0px">
         {/* AI Gateway Status Indicator */}
         <Box 
           display={{ base: 'none', l: 'flex' }} 

@@ -9,7 +9,11 @@ import {
   CardBody, 
   Button, 
   Badge,
+  Alert,
+  Skeleton,
+  EmptyState,
   AlertCircleIcon, 
+  AlertTriangleIcon,
   UsersIcon, 
   ShoppingBagIcon, 
   RupeeIcon,
@@ -23,9 +27,12 @@ import {
   ActivityIcon,
   FileTextIcon,
   SparklesIcon,
-  PackageIcon
+  PackageIcon,
+  InfoIcon
 } from '@razorpay/blade/components';
 import Link from 'next/link';
+import { NeedsActionPanel } from './components/NeedsActionPanel';
+import { RevenueGrowthWidget } from './components/RevenueGrowthWidget';
 
 export default function DashboardPage() {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -33,9 +40,11 @@ export default function DashboardPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadDashboardData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const [resSessions, resOrders, resProducts, resAudit] = await Promise.all([
         fetch('/api/sessions').then(r => r.json()),
@@ -50,6 +59,7 @@ export default function DashboardPage() {
       if (resAudit.audit_logs) setAuditLogs(resAudit.audit_logs);
     } catch (err) {
       console.error('Error loading dashboard metrics:', err);
+      setError('We couldn’t load your dashboard data. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -59,17 +69,31 @@ export default function DashboardPage() {
     loadDashboardData();
   }, []);
 
+  const isToday = (iso?: string) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    const now = new Date();
+    return d.toDateString() === now.toDateString();
+  };
   const paidOrders = orders.filter(o => o.status === 'paid');
-  const revenueToday = paidOrders.reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
-  const urgentSessions = sessions.filter(s => s.status === 'awaiting_confirmation' || s.status === 'created');
+  const activeConversations = sessions.filter(s => ['active', 'checkout_ready'].includes(s.status || ''));
+  const ordersToday = orders.filter(o => isToday(o.created_at));
+  const revenueToday = paidOrders.filter(o => isToday(o.created_at)).reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
+  const customersHelpedToday = sessions.filter(s => isToday(s.created_at)).length;
+  const conversionRate = sessions.length > 0 ? Math.round((paidOrders.length / sessions.length) * 100) : 0;
   const lowStockProducts = products.filter(p => (p.stock_qty || 0) <= 5);
 
   const SUMMARY_STATS = [
-    { title: 'Live Sessions', value: String(sessions.length), trend: 'Active buyer chats', icon: UsersIcon, color: 'primary', href: '/dashboard/live-sessions' },
-    { title: 'Orders Today', value: String(orders.length), trend: `${paidOrders.length} Paid`, icon: ShoppingBagIcon, color: 'positive', href: '/dashboard/orders' },
-    { title: 'Revenue Today', value: `₹${revenueToday.toLocaleString('en-IN')}`, trend: 'Verified payments', icon: RupeeIcon, color: 'primary', href: '/dashboard/orders' },
-    { title: 'Attention Needed', value: String(urgentSessions.length + lowStockProducts.length), trend: 'Requires merchant action', icon: AlertCircleIcon, color: 'negative', isAction: true, href: '/dashboard/live-sessions' }
+    { title: 'AI Status', value: 'Online', trend: 'Catalog synced & connected', icon: SparklesIcon, color: 'primary', href: '/dashboard/ai-agent' },
+    { title: 'Active Conversations', value: String(activeConversations.length), trend: `${sessions.length} total`, icon: UsersIcon, color: 'primary', href: '/dashboard/ai-agent' },
+    { title: 'Orders Created Today', value: String(ordersToday.length), trend: `${paidOrders.length} paid overall`, icon: ShoppingBagIcon, color: 'positive', href: '/dashboard/orders' },
+    { title: 'Revenue Generated Today', value: `₹${revenueToday.toLocaleString('en-IN')}`, trend: 'Verified payments', icon: RupeeIcon, color: 'primary', href: '/dashboard/orders' }
   ];
+
+  const STAT_COLORS = {
+    primary: { bg: 'surface.background.primary.subtle', icon: 'interactive.icon.primary.normal' },
+    positive: { bg: 'feedback.background.positive.subtle', icon: 'interactive.icon.positive.normal' },
+  } as const;
 
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
@@ -88,9 +112,42 @@ export default function DashboardPage() {
         </Box>
       </Box>
 
+      {/* Test Mode Badge */}
+      <Box marginBottom="spacing.4">
+        <Alert
+          color="notice"
+          title="Test Mode Active (Demo)"
+          description="You are currently using Razorpay Test Mode. No real money is being processed. Switch to Live Mode to start accepting real payments."
+          isDismissible={false}
+        />
+      </Box>
+
+      {error && (
+        <Alert color="negative" title="Couldn’t load dashboard" description={error} marginBottom="spacing.6" />
+      )}
+
+      {!isLoading && !error && sessions.length === 0 && orders.length === 0 && products.length === 0 && (
+        <Card elevation="none" backgroundColor="surface.background.gray.intense" marginBottom="spacing.6">
+          <CardBody>
+            <EmptyState
+              title="No activity yet"
+              description="Once your AI agent handles conversations and creates orders, your live operations overview will appear here."
+            />
+          </CardBody>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2, 1fr)', l: 'repeat(4, 1fr)' }} gap="spacing.4" marginBottom="spacing.6">
-        {SUMMARY_STATS.map((stat, i) => {
+        {isLoading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <Card key={i} elevation="none" backgroundColor="surface.background.gray.intense">
+                <CardBody>
+                  <Skeleton height="64px" />
+                </CardBody>
+              </Card>
+            ))
+          : SUMMARY_STATS.map((stat, i) => {
           const Icon = stat.icon;
           return (
             <Card key={i} elevation="none" backgroundColor="surface.background.gray.intense">
@@ -102,19 +159,19 @@ export default function DashboardPage() {
                         width="36px" 
                         height="36px" 
                         borderRadius="medium" 
-                        backgroundColor={`surface.background.${stat.color}.subtle` as any}
+                        backgroundColor={STAT_COLORS[stat.color as keyof typeof STAT_COLORS].bg}
                         display="flex" 
                         alignItems="center" 
                         justifyContent="center"
                       >
-                        <Icon size="medium" color={`interactive.icon.${stat.color}.normal` as any} />
+                        <Icon size="medium" color={STAT_COLORS[stat.color as keyof typeof STAT_COLORS].icon} />
                       </Box>
                       <Text weight="semibold" size="small" color="surface.text.gray.subtle">
                         {stat.title}
                       </Text>
                     </Box>
-                    {stat.isAction && (
-                      <Badge color="negative" size="small">Action</Badge>
+                    {stat.title === 'AI Status' && (
+                      <Badge color="positive" size="small">Live</Badge>
                     )}
                   </Box>
 
@@ -146,6 +203,40 @@ export default function DashboardPage() {
         {/* Left Column */}
         <Box display="flex" flexDirection="column" gap="spacing.6">
           
+          {/* Needs Action Panel */}
+          <Card elevation="none" backgroundColor="surface.background.gray.intense">
+            <CardBody>
+              <NeedsActionPanel />
+            </CardBody>
+          </Card>
+
+          {/* Revenue Growth Widget */}
+          <RevenueGrowthWidget />
+
+          
+          {/* AI Performance Summary */}
+          <Card elevation="none" backgroundColor="surface.background.gray.intense">
+            <CardBody>
+              <Box display="flex" alignItems="center" gap="spacing.2" marginBottom="spacing.4">
+                <SparklesIcon size="small" color="interactive.icon.primary.normal" />
+                <Heading size="small">AI Performance</Heading>
+              </Box>
+              <Box display="grid" gridTemplateColumns={{ base: '1fr 1fr', m: 'repeat(4,1fr)' }} gap="spacing.3">
+                {[
+                  { label: 'Customers helped today', value: String(customersHelpedToday) },
+                  { label: 'Orders created today', value: String(ordersToday.length) },
+                  { label: 'Revenue generated today', value: `₹${revenueToday.toLocaleString('en-IN')}` },
+                  { label: 'Conversion rate', value: `${conversionRate}%` },
+                ].map((item) => (
+                  <Box key={item.label} padding="spacing.3" backgroundColor="surface.background.gray.subtle" borderRadius="medium">
+                    <Text size="medium" weight="semibold">{item.value}</Text>
+                    <Text size="xsmall" color="surface.text.gray.muted">{item.label}</Text>
+                  </Box>
+                ))}
+              </Box>
+            </CardBody>
+          </Card>
+
           {/* Recent Orders */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
@@ -242,47 +333,47 @@ export default function DashboardPage() {
         {/* Right Column */}
         <Box display="flex" flexDirection="column" gap="spacing.6">
           
-          {/* Recent Live Sessions */}
+          {/* Latest Conversations */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.4">
                 <Box display="flex" alignItems="center" gap="spacing.2">
                   <ActivityIcon size="small" color="interactive.icon.primary.normal" />
-                  <Heading size="small">Recent Live Buyer Sessions ({sessions.length})</Heading>
+                  <Heading size="small">Latest Conversations</Heading>
                 </Box>
-                <Link href="/dashboard/live-sessions" style={{ textDecoration: 'none' }}>
+                <Link href="/dashboard/ai-agent" style={{ textDecoration: 'none' }}>
                   <Button variant="tertiary" size="small">View all</Button>
                 </Link>
               </Box>
 
               {sessions.length === 0 ? (
-                <Text size="small" color="surface.text.gray.muted">No live sessions recorded yet.</Text>
+                <Text size="small" color="surface.text.gray.muted">No conversations recorded yet.</Text>
               ) : (
                 <Box display="flex" flexDirection="column">
                   {sessions.slice(0, 5).map((session, index) => (
                     <Box 
                       key={session.id} 
                       display="grid" 
-                      gridTemplateColumns="1fr 1.2fr 2fr 1.2fr" 
+                      gridTemplateColumns="1.4fr 1fr 1fr" 
                       gap="spacing.3" 
                       alignItems="center"
                       paddingY="spacing.3"
                       borderBottomWidth={index !== Math.min(sessions.length, 5) - 1 ? 'thin' : 'none'}
                       borderBottomColor="surface.border.gray.muted"
                     >
-                      <Text weight="semibold" size="small" color="surface.text.primary.normal">
-                        {session.id.substring(0, 8).toUpperCase()}
-                      </Text>
-                      <Box display="flex" alignItems="center" gap="spacing.1">
-                        <SparklesIcon size="xsmall" color="interactive.icon.primary.normal" />
-                        <Text size="xsmall" weight="semibold">{session.external_ai_name || 'AI'}</Text>
+                      <Box>
+                        <Text weight="semibold" size="small">{session.external_ai_name || 'Customer'}</Text>
+                        <Text size="xsmall" color="surface.text.gray.subtle">{(session.customer_query || session.buyer_request_text || '').slice(0, 48) || 'No request recorded'}</Text>
                       </Box>
-                      <Box overflow="hidden" whiteSpace="nowrap">
-                        <Text size="xsmall" color="surface.text.gray.subtle">{session.buyer_request_text}</Text>
-                      </Box>
-                      <Badge color="notice" size="small">
-                        {session.status}
+                      <Badge
+                        color={session.status === 'paid' || session.status === 'completed' ? 'positive' : session.status === 'checkout_ready' ? 'notice' : 'information'}
+                        size="small"
+                      >
+                        {(session.status || 'active').replaceAll('_', ' ')}
                       </Badge>
+                      <Link href="/dashboard/ai-agent" style={{ textDecoration: 'none', justifySelf: 'end' }}>
+                        <Button variant="secondary" size="small">Open</Button>
+                      </Link>
                     </Box>
                   ))}
                 </Box>

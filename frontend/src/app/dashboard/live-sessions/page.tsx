@@ -61,11 +61,12 @@ const statusConfig: Record<SessionStatus, { color: 'primary' | 'notice' | 'infor
 };
 
 function mapDbStatusToUi(dbStatus: string): SessionStatus {
-  if (dbStatus === 'created') return 'New';
+  if (dbStatus === 'created' || dbStatus === 'active') return 'New';
   if (dbStatus === 'searching') return 'Matching';
   if (dbStatus === 'awaiting_confirmation') return 'Awaiting Confirmation';
   if (dbStatus === 'claimed') return 'Awaiting Details';
   if (dbStatus === 'completed') return 'Checkout Ready';
+  if (dbStatus === 'checkout_ready') return 'Checkout Ready';
   if (dbStatus === 'paid') return 'Paid';
   return 'Matching';
 }
@@ -280,8 +281,10 @@ export default function LiveSessionsPage() {
       {/* Sessions Table */}
       <Card elevation="none" backgroundColor="surface.background.gray.intense">
         <CardBody>
+          <Box overflowX="auto">
           <Box 
             display="grid" 
+            minWidth="900px"
             gridTemplateColumns="1fr 1.2fr 2.5fr 1fr 1.3fr 1fr 1fr auto" 
             gap="spacing.4" 
             paddingY="spacing.3" 
@@ -305,7 +308,7 @@ export default function LiveSessionsPage() {
           ) : sessions.length === 0 ? (
             <Box padding="spacing.4"><Text size="small" color="surface.text.gray.muted">No active buyer sessions found.</Text></Box>
           ) : (
-            <Box display="flex" flexDirection="column">
+            <Box display="flex" flexDirection="column" minWidth="900px">
               {sessions.map((session, index) => (
                 <Box 
                   key={session.id}
@@ -343,6 +346,7 @@ export default function LiveSessionsPage() {
               ))}
             </Box>
           )}
+          </Box>
         </CardBody>
       </Card>
 
