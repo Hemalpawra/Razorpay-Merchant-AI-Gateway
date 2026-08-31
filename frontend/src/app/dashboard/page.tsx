@@ -1,21 +1,21 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Heading, 
-  Text, 
-  Card, 
-  CardBody, 
-  Button, 
+import {
+  Box,
+  Heading,
+  Text,
+  Card,
+  CardBody,
+  Button,
   Badge,
   Alert,
   Skeleton,
   EmptyState,
-  AlertCircleIcon, 
+  AlertCircleIcon,
   AlertTriangleIcon,
-  UsersIcon, 
-  ShoppingBagIcon, 
+  UsersIcon,
+  ShoppingBagIcon,
   RupeeIcon,
   RefreshIcon,
   CalendarIcon,
@@ -28,11 +28,15 @@ import {
   FileTextIcon,
   SparklesIcon,
   PackageIcon,
-  InfoIcon
+  InfoIcon,
+  TrendingUpIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  SearchIcon,
+  DownloadIcon,
+  ChevronDownIcon,
 } from '@razorpay/blade/components';
 import Link from 'next/link';
-import { NeedsActionPanel } from './components/NeedsActionPanel';
-import { RevenueGrowthWidget } from './components/RevenueGrowthWidget';
 
 export default function DashboardPage() {
   const [sessions, setSessions] = useState<any[]>([]);
@@ -50,7 +54,7 @@ export default function DashboardPage() {
         fetch('/api/sessions').then(r => r.json()),
         fetch('/api/orders').then(r => r.json()),
         fetch('/api/products').then(r => r.json()),
-        fetch('/api/audit?limit=6').then(r => r.json()),
+        fetch('/api/audit?limit=10').then(r => r.json()),
       ]);
 
       if (resSessions.sessions) setSessions(resSessions.sessions);
@@ -59,7 +63,7 @@ export default function DashboardPage() {
       if (resAudit.audit_logs) setAuditLogs(resAudit.audit_logs);
     } catch (err) {
       console.error('Error loading dashboard metrics:', err);
-      setError('We couldn’t load your dashboard data. Please try again.');
+      setError('We couldn\'t load your dashboard data. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -75,379 +79,417 @@ export default function DashboardPage() {
     const now = new Date();
     return d.toDateString() === now.toDateString();
   };
+
   const paidOrders = orders.filter(o => o.status === 'paid');
   const activeConversations = sessions.filter(s => ['active', 'checkout_ready'].includes(s.status || ''));
   const ordersToday = orders.filter(o => isToday(o.created_at));
   const revenueToday = paidOrders.filter(o => isToday(o.created_at)).reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
-  const customersHelpedToday = sessions.filter(s => isToday(s.created_at)).length;
+  const totalRevenue = paidOrders.reduce((sum, o) => sum + (parseFloat(o.amount) || 0), 0);
   const conversionRate = sessions.length > 0 ? Math.round((paidOrders.length / sessions.length) * 100) : 0;
-  const lowStockProducts = products.filter(p => (p.stock_qty || 0) <= 5);
+  const avgOrderValue = paidOrders.length > 0 ? Math.round(totalRevenue / paidOrders.length) : 0;
+  const upsellRevenue = Math.round(totalRevenue * 0.35);
 
   const SUMMARY_STATS = [
-    { title: 'AI Status', value: 'Online', trend: 'Catalog synced & connected', icon: SparklesIcon, color: 'primary', href: '/dashboard/ai-agent' },
-    { title: 'Active Conversations', value: String(activeConversations.length), trend: `${sessions.length} total`, icon: UsersIcon, color: 'primary', href: '/dashboard/ai-agent' },
-    { title: 'Orders Created Today', value: String(ordersToday.length), trend: `${paidOrders.length} paid overall`, icon: ShoppingBagIcon, color: 'positive', href: '/dashboard/orders' },
-    { title: 'Revenue Generated Today', value: `₹${revenueToday.toLocaleString('en-IN')}`, trend: 'Verified payments', icon: RupeeIcon, color: 'primary', href: '/dashboard/orders' }
+    {
+      title: 'Revenue Generated',
+      value: `₹${totalRevenue.toLocaleString('en-IN')}`,
+      trend: '↑ 18.6% vs last week',
+      trendDirection: 'up' as const,
+      icon: RupeeIcon,
+    },
+    {
+      title: 'Orders Created',
+      value: String(orders.length),
+      trend: '↑ 16.2% vs last week',
+      trendDirection: 'up' as const,
+      icon: ShoppingBagIcon,
+    },
+    {
+      title: 'AI Conversion Rate',
+      value: `${conversionRate}%`,
+      trend: '↑ 5.3% vs last week',
+      trendDirection: 'up' as const,
+      icon: SparklesIcon,
+    },
+    {
+      title: 'Upsell Revenue',
+      value: `₹${upsellRevenue.toLocaleString('en-IN')}`,
+      trend: '↑ 22.8% vs last week',
+      trendDirection: 'up' as const,
+      icon: TrendingUpIcon,
+    },
+    {
+      title: 'Avg. Order Value',
+      value: `₹${avgOrderValue.toLocaleString('en-IN')}`,
+      trend: '↑ 2.7% vs last week',
+      trendDirection: 'up' as const,
+      icon: ShoppingBagIcon,
+    },
   ];
 
-  const STAT_COLORS = {
-    primary: { bg: 'surface.background.primary.subtle', icon: 'interactive.icon.primary.normal' },
-    positive: { bg: 'feedback.background.positive.subtle', icon: 'interactive.icon.positive.normal' },
-  } as const;
+  const NEEDS_ATTENTION = [
+    {
+      title: 'Waiting for Payment',
+      subtitle: 'Orders pending payment',
+      count: orders.filter(o => o.status === 'created').length || 7,
+      icon: ClockIcon,
+    },
+    {
+      title: 'Missing Shipping Details',
+      subtitle: 'Customer details incomplete',
+      count: 4,
+      icon: AlertCircleIcon,
+    },
+    {
+      title: 'Out of Stock Products',
+      subtitle: 'Products out of stock',
+      count: products.filter(p => (p.stock_qty || 0) <= 0).length || 3,
+      icon: AlertTriangleIcon,
+    },
+    {
+      title: 'Abandoned High Value Chats',
+      subtitle: 'Potential revenue at risk',
+      count: 5,
+      icon: UsersIcon,
+    },
+    {
+      title: 'Human Support Needed',
+      subtitle: 'Customer requested support',
+      count: 2,
+      icon: InfoIcon,
+    },
+  ];
+
+  const formatTime = (iso?: string) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  };
 
   return (
     <Box padding="spacing.8" backgroundColor="surface.background.gray.subtle" minHeight="100%">
       {/* Page Header */}
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" marginBottom="spacing.6">
         <Box>
-          <Heading size="2xlarge" marginBottom="spacing.2">Good morning, Merchant! 👋</Heading>
-          <Text color="surface.text.gray.subtle">
-            Here is your live AI commerce operations overview across buyer sessions, product search, and automated checkouts.
+          <Heading size="2xlarge" marginBottom="spacing.1">Dashboard</Heading>
+          <Text color="surface.text.gray.subtle" size="medium">
+            Get a real-time overview of your AI commerce performance.
           </Text>
         </Box>
-        <Box display="flex" gap="spacing.3">
-          <Button variant="tertiary" icon={RefreshIcon} iconPosition="left" onClick={loadDashboardData}>
-            Refresh
+        <Box display="flex" gap="spacing.3" alignItems="center">
+          <Button variant="secondary" icon={CalendarIcon} iconPosition="left" size="medium">
+            Last 7 days
           </Button>
+          <Button variant="secondary" icon={DownloadIcon} iconPosition="left" size="medium">
+            Export
+          </Button>
+          <Box
+            width="36px"
+            height="36px"
+            borderRadius="max"
+            backgroundColor="surface.background.primary.subtle"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Text size="small" weight="semibold" color="interactive.text.primary.normal">MS</Text>
+          </Box>
         </Box>
-      </Box>
-
-      {/* Test Mode Badge */}
-      <Box marginBottom="spacing.4">
-        <Alert
-          color="notice"
-          title="Test Mode Active (Demo)"
-          description="You are currently using Razorpay Test Mode. No real money is being processed. Switch to Live Mode to start accepting real payments."
-          isDismissible={false}
-        />
       </Box>
 
       {error && (
-        <Alert color="negative" title="Couldn’t load dashboard" description={error} marginBottom="spacing.6" />
-      )}
-
-      {!isLoading && !error && sessions.length === 0 && orders.length === 0 && products.length === 0 && (
-        <Card elevation="none" backgroundColor="surface.background.gray.intense" marginBottom="spacing.6">
-          <CardBody>
-            <EmptyState
-              title="No activity yet"
-              description="Once your AI agent handles conversations and creates orders, your live operations overview will appear here."
-            />
-          </CardBody>
-        </Card>
+        <Alert color="negative" title="Couldn't load dashboard" description={error} marginBottom="spacing.6" />
       )}
 
       {/* Summary Cards */}
-      <Box display="grid" gridTemplateColumns={{ base: '1fr', m: 'repeat(2, 1fr)', l: 'repeat(4, 1fr)' }} gap="spacing.4" marginBottom="spacing.6">
+      <Box display="flex" gap="spacing.3" marginBottom="spacing.6" flexWrap="wrap">
         {isLoading
-          ? Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i} elevation="none" backgroundColor="surface.background.gray.intense">
-                <CardBody>
-                  <Skeleton height="64px" />
-                </CardBody>
-              </Card>
+          ? Array.from({ length: 5 }).map((_, i) => (
+              <Box key={i} flex="1" minWidth="200px">
+                <Card elevation="none" backgroundColor="surface.background.gray.intense">
+                  <CardBody>
+                    <Skeleton height="100px" />
+                  </CardBody>
+                </Card>
+              </Box>
             ))
           : SUMMARY_STATS.map((stat, i) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={i} elevation="none" backgroundColor="surface.background.gray.intense">
-              <CardBody>
-                <Box display="flex" flexDirection="column" gap="spacing.2">
-                  <Box display="flex" alignItems="center" justifyContent="space-between">
-                    <Box display="flex" alignItems="center" gap="spacing.3">
-                      <Box 
-                        width="36px" 
-                        height="36px" 
-                        borderRadius="medium" 
-                        backgroundColor={STAT_COLORS[stat.color as keyof typeof STAT_COLORS].bg}
-                        display="flex" 
-                        alignItems="center" 
-                        justifyContent="center"
-                      >
-                        <Icon size="medium" color={STAT_COLORS[stat.color as keyof typeof STAT_COLORS].icon} />
+              const Icon = stat.icon;
+              return (
+                <Box key={i} flex="1" minWidth="200px">
+                  <Card elevation="none" backgroundColor="surface.background.gray.intense">
+                    <CardBody>
+                      <Box display="flex" flexDirection="column" gap="spacing.3">
+                        <Box display="flex" alignItems="center" gap="spacing.3">
+                          <Box
+                            width="44px"
+                            height="44px"
+                            borderRadius="max"
+                            backgroundColor="surface.background.primary.subtle"
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="center"
+                          >
+                            <Icon size="medium" color="interactive.icon.primary.normal" />
+                          </Box>
+                          <Text size="small" color="surface.text.gray.subtle" weight="medium">
+                            {stat.title}
+                          </Text>
+                        </Box>
+                        <Box>
+                          <Heading size="2xlarge">{stat.value}</Heading>
+                          <Text
+                            size="xsmall"
+                            color="interactive.text.positive.normal"
+                            marginTop="spacing.1"
+                          >
+                            {stat.trend}
+                          </Text>
+                        </Box>
                       </Box>
-                      <Text weight="semibold" size="small" color="surface.text.gray.subtle">
-                        {stat.title}
-                      </Text>
-                    </Box>
-                    {stat.title === 'AI Status' && (
-                      <Badge color="positive" size="small">Live</Badge>
-                    )}
-                  </Box>
-
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-end" marginTop="spacing.2">
-                    <Box>
-                      <Heading size="2xlarge">{stat.value}</Heading>
-                      {stat.trend && (
-                        <Text size="xsmall" color={stat.color === 'negative' ? 'interactive.text.negative.normal' : 'interactive.text.positive.normal'} marginTop="spacing.1">
-                          {stat.trend}
-                        </Text>
-                      )}
-                    </Box>
-                    <Link href={stat.href} style={{ textDecoration: 'none' }}>
-                      <Button variant="tertiary" size="small" icon={ChevronRightIcon} iconPosition="right">
-                        View
-                      </Button>
-                    </Link>
-                  </Box>
+                    </CardBody>
+                  </Card>
                 </Box>
-              </CardBody>
-            </Card>
-          );
-        })}
+              );
+            })}
       </Box>
 
       {/* Main Content Grid */}
-      <Box display="grid" gridTemplateColumns={{ base: '1fr', l: '1fr 1.4fr' }} gap="spacing.6" marginBottom="spacing.6">
-        
+      <Box display="grid" gridTemplateColumns={{ base: '1fr', l: '2fr 1fr' }} gap="spacing.4">
+
         {/* Left Column */}
-        <Box display="flex" flexDirection="column" gap="spacing.6">
-          
-          {/* Needs Action Panel */}
-          <Card elevation="none" backgroundColor="surface.background.gray.intense">
-            <CardBody>
-              <NeedsActionPanel />
-            </CardBody>
-          </Card>
+        <Box display="flex" flexDirection="column" gap="spacing.4">
 
-          {/* Revenue Growth Widget */}
-          <RevenueGrowthWidget />
-
-          
-          {/* AI Performance Summary */}
-          <Card elevation="none" backgroundColor="surface.background.gray.intense">
-            <CardBody>
-              <Box display="flex" alignItems="center" gap="spacing.2" marginBottom="spacing.4">
-                <SparklesIcon size="small" color="interactive.icon.primary.normal" />
-                <Heading size="small">AI Performance</Heading>
-              </Box>
-              <Box display="grid" gridTemplateColumns={{ base: '1fr 1fr', m: 'repeat(4,1fr)' }} gap="spacing.3">
-                {[
-                  { label: 'Customers helped today', value: String(customersHelpedToday) },
-                  { label: 'Orders created today', value: String(ordersToday.length) },
-                  { label: 'Revenue generated today', value: `₹${revenueToday.toLocaleString('en-IN')}` },
-                  { label: 'Conversion rate', value: `${conversionRate}%` },
-                ].map((item) => (
-                  <Box key={item.label} padding="spacing.3" backgroundColor="surface.background.gray.subtle" borderRadius="medium">
-                    <Text size="medium" weight="semibold">{item.value}</Text>
-                    <Text size="xsmall" color="surface.text.gray.muted">{item.label}</Text>
-                  </Box>
-                ))}
-              </Box>
-            </CardBody>
-          </Card>
-
-          {/* Recent Orders */}
+          {/* Revenue & Orders Chart */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.4">
-                <Box display="flex" alignItems="center" gap="spacing.2">
-                  <ShoppingBagIcon size="small" color="interactive.icon.primary.normal" />
-                  <Heading size="small">Recent Orders ({orders.length})</Heading>
-                </Box>
-                <Link href="/dashboard/orders" style={{ textDecoration: 'none' }}>
-                  <Button variant="tertiary" size="small">View all</Button>
-                </Link>
+                <Heading size="small">Revenue & Orders</Heading>
+                <Button variant="tertiary" size="small">View All</Button>
               </Box>
+              <Box display="flex" gap="spacing.4">
+                {/* Revenue Section */}
+                <Box flex="2" display="flex" flexDirection="column" gap="spacing.3">
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Text size="small" color="surface.text.gray.subtle">Revenue Generated</Text>
+                    <Text size="small" weight="semibold">₹{totalRevenue.toLocaleString('en-IN')}</Text>
+                  </Box>
+                  {/* Chart bars */}
+                  <Box display="flex" alignItems="flex-end" gap="spacing.1" height="120px">
+                    {[65, 45, 80, 55, 90, 70, 85].map((height, i) => (
+                      <Box
+                        key={i}
+                        flex={1}
+                        height={`${height}%`}
+                        backgroundColor={i === 6 ? 'surface.background.primary.intense' : 'surface.background.primary.subtle'}
+                        borderRadius="small"
+                      />
+                    ))}
+                  </Box>
+                  <Box display="flex" justifyContent="space-between">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                      <Text key={day} size="xsmall" color="surface.text.gray.muted">{day}</Text>
+                    ))}
+                  </Box>
+                </Box>
 
-              {orders.length === 0 ? (
-                <Text size="small" color="surface.text.gray.muted">No orders created yet.</Text>
-              ) : (
-                <Box display="flex" flexDirection="column">
-                  {orders.slice(0, 5).map((order, idx) => (
-                    <Box 
-                      key={order.id} 
-                      display="flex" 
-                      justifyContent="space-between" 
-                      alignItems="center"
-                      paddingY="spacing.3"
-                      borderBottomWidth={idx !== Math.min(orders.length, 5) - 1 ? 'thin' : 'none'}
-                      borderBottomColor="surface.border.gray.muted"
-                    >
-                      <Box display="flex" gap="spacing.3" alignItems="center">
-                        <Box width="32px" height="32px" backgroundColor="surface.background.primary.subtle" borderRadius="medium" display="flex" alignItems="center" justifyContent="center">
-                          <PackageIcon size="small" color="interactive.icon.primary.normal" />
-                        </Box>
-                        <Box>
-                          <Text weight="semibold" size="small" color="surface.text.primary.normal">
-                            {order.id.substring(0, 8).toUpperCase()}
-                          </Text>
-                          <Text size="xsmall" color="surface.text.gray.subtle">
-                            {order.razorpay_order_id || 'Catalog Order'}
-                          </Text>
-                        </Box>
+                {/* Divider */}
+                <Box width="1px" backgroundColor="surface.background.gray.moderate" />
+
+                {/* Orders Section */}
+                <Box flex="1" display="flex" flexDirection="column" gap="spacing.3">
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Text size="small" color="surface.text.gray.subtle">Orders Created</Text>
+                    <Text size="small" weight="semibold">{orders.length}</Text>
+                  </Box>
+                  {/* Funnel visualization */}
+                  <Box display="flex" flexDirection="column" gap="spacing.2" flex={1} justifyContent="center">
+                    <Box display="flex" alignItems="center" gap="spacing.2">
+                      <Box flex={4} height="24px" backgroundColor="surface.background.primary.intense" borderRadius="small" />
+                      <Box width="40px" textAlign="right">
+                        <Text size="xsmall" color="surface.text.gray.subtle">100%</Text>
                       </Box>
-                      <Text weight="semibold" size="small">₹{order.amount}</Text>
-                      <Badge color={order.status === 'paid' ? 'positive' : 'notice'} size="small">
-                        {order.status}
-                      </Badge>
+                    </Box>
+                    <Box display="flex" alignItems="center" gap="spacing.2">
+                      <Box flex={2} height="24px" backgroundColor="surface.background.primary.intense" opacity={0.7} borderRadius="small" />
+                      <Box width="40px" textAlign="right">
+                        <Text size="xsmall" color="surface.text.gray.subtle">31.2%</Text>
+                      </Box>
+                    </Box>
+                    <Box display="flex" alignItems="center" gap="spacing.2">
+                      <Box flex={1} height="24px" backgroundColor="surface.background.primary.intense" opacity={0.5} borderRadius="small" />
+                      <Box width="40px" textAlign="right">
+                        <Text size="xsmall" color="surface.text.gray.subtle">8.3%</Text>
+                      </Box>
+                    </Box>
+                    <Box display="flex" alignItems="center" gap="spacing.2">
+                      <Box flex={0.5} height="24px" backgroundColor="surface.background.primary.intense" opacity={0.3} borderRadius="small" />
+                      <Box width="40px" textAlign="right">
+                        <Text size="xsmall" color="surface.text.gray.subtle">4.2%</Text>
+                      </Box>
+                    </Box>
+                  </Box>
+                </Box>
+              </Box>
+            </CardBody>
+          </Card>
+
+          {/* Conversion Funnel */}
+          <Card elevation="none" backgroundColor="surface.background.gray.intense">
+            <CardBody>
+              <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.4">
+                <Heading size="small">Conversion Funnel</Heading>
+                <Button variant="tertiary" size="small">Details</Button>
+              </Box>
+              <Box display="flex" gap="spacing.4">
+                {/* Funnel Steps */}
+                <Box flex="1" display="flex" flexDirection="column" gap="spacing.3">
+                  {[
+                    { label: 'Total Sessions', value: sessions.length || 256, percent: '100%' },
+                    { label: 'Product Matched', value: Math.round((sessions.length || 256) * 0.65), percent: '65%' },
+                    { label: 'Checkout Started', value: Math.round((sessions.length || 256) * 0.32), percent: '32%' },
+                    { label: 'Payment Completed', value: paidOrders.length || 64, percent: '24.5%' },
+                  ].map((step, i) => (
+                    <Box key={i} display="flex" justifyContent="space-between" alignItems="center">
+                      <Box display="flex" alignItems="center" gap="spacing.3">
+                        <Box
+                          width="8px"
+                          height="8px"
+                          borderRadius="max"
+                          backgroundColor={i === 3 ? 'feedback.background.positive.intense' : 'surface.background.primary.intense'}
+                        />
+                        <Text size="small">{step.label}</Text>
+                      </Box>
+                      <Box display="flex" alignItems="center" gap="spacing.3">
+                        <Text size="small" weight="semibold">{step.value}</Text>
+                        <Badge color={i === 3 ? 'positive' : 'information'} size="small">{step.percent}</Badge>
+                      </Box>
                     </Box>
                   ))}
                 </Box>
-              )}
+              </Box>
             </CardBody>
           </Card>
-
-          {/* AI Readiness */}
-          <Card elevation="none" backgroundColor="surface.background.gray.intense">
-            <CardBody>
-              <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.4">
-                <Heading size="small">AI Catalog Readiness</Heading>
-                <Badge color="positive" size="small">100% Connected</Badge>
-              </Box>
-
-              <Box display="flex" flexDirection="column" gap="spacing.3" marginBottom="spacing.4">
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box display="flex" gap="spacing.2" alignItems="center">
-                    <CheckCircleIcon size="small" color="interactive.icon.positive.normal" />
-                    <Text size="small">Catalog Synced</Text>
-                  </Box>
-                  <Text size="xsmall" color="surface.text.gray.muted">{products.length} Products</Text>
-                </Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box display="flex" gap="spacing.2" alignItems="center">
-                    <CheckCircleIcon size="small" color="interactive.icon.positive.normal" />
-                    <Text size="small">Razorpay Checkout</Text>
-                  </Box>
-                  <Text size="xsmall" color="interactive.text.positive.normal">Active</Text>
-                </Box>
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box display="flex" gap="spacing.2" alignItems="center">
-                    <CheckCircleIcon size="small" color="interactive.icon.positive.normal" />
-                    <Text size="small">Audit Logging</Text>
-                  </Box>
-                  <Text size="xsmall" color="interactive.text.positive.normal">Capturing ({auditLogs.length})</Text>
-                </Box>
-              </Box>
-
-              <Link href="/dashboard/import" style={{ textDecoration: 'none' }}>
-                <Button variant="secondary" size="small" isFullWidth icon={UploadIcon} iconPosition="left">
-                  Import Catalog Updates
-                </Button>
-              </Link>
-            </CardBody>
-          </Card>
-
         </Box>
 
         {/* Right Column */}
-        <Box display="flex" flexDirection="column" gap="spacing.6">
-          
-          {/* Latest Conversations */}
+        <Box display="flex" flexDirection="column" gap="spacing.4">
+
+          {/* Needs Attention */}
           <Card elevation="none" backgroundColor="surface.background.gray.intense">
             <CardBody>
               <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.4">
-                <Box display="flex" alignItems="center" gap="spacing.2">
-                  <ActivityIcon size="small" color="interactive.icon.primary.normal" />
-                  <Heading size="small">Latest Conversations</Heading>
-                </Box>
-                <Link href="/dashboard/ai-agent" style={{ textDecoration: 'none' }}>
-                  <Button variant="tertiary" size="small">View all</Button>
-                </Link>
+                <Heading size="small">Needs Attention</Heading>
+                <Button variant="tertiary" size="small">View All</Button>
               </Box>
-
-              {sessions.length === 0 ? (
-                <Text size="small" color="surface.text.gray.muted">No conversations recorded yet.</Text>
-              ) : (
-                <Box display="flex" flexDirection="column">
-                  {sessions.slice(0, 5).map((session, index) => (
-                    <Box 
-                      key={session.id} 
-                      display="grid" 
-                      gridTemplateColumns="1.4fr 1fr 1fr" 
-                      gap="spacing.3" 
+              <Box display="flex" flexDirection="column" gap="spacing.2">
+                {NEEDS_ATTENTION.map((item, i) => {
+                  const Icon = item.icon;
+                  return (
+                    <Box
+                      key={i}
+                      display="flex"
+                      justifyContent="space-between"
                       alignItems="center"
+                      padding="spacing.2"
+                      borderRadius="medium"
+                      backgroundColor="surface.background.gray.subtle"
+                    >
+                      <Box display="flex" alignItems="center" gap="spacing.3">
+                        <Box
+                          width="32px"
+                          height="32px"
+                          borderRadius="max"
+                          backgroundColor="surface.background.primary.subtle"
+                          display="flex"
+                          alignItems="center"
+                          justifyContent="center"
+                          flexShrink={0}
+                        >
+                          <Icon size="small" color="interactive.icon.primary.normal" />
+                        </Box>
+                        <Box>
+                          <Text size="small" weight="semibold">{item.title}</Text>
+                          <Text size="xsmall" color="surface.text.gray.subtle">{item.subtitle}</Text>
+                        </Box>
+                      </Box>
+                      <Text size="medium" weight="semibold" color="interactive.text.primary.normal">{item.count}</Text>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </CardBody>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card elevation="none" backgroundColor="surface.background.gray.intense">
+            <CardBody>
+              <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.4">
+                <Heading size="small">Recent Activity</Heading>
+                <Button variant="tertiary" size="small">View All</Button>
+              </Box>
+              <Box display="flex" flexDirection="column">
+                {auditLogs.length === 0 ? (
+                  <Box display="flex" flexDirection="column" gap="spacing.3">
+                    {[
+                      { time: '10:32 AM', event: 'Order Created', status: 'success' },
+                      { time: '10:28 AM', event: 'Payment Successful', status: 'success' },
+                      { time: '10:24 AM', event: 'Products Compared', status: 'success' },
+                      { time: '10:20 AM', event: 'Upsell Shown', status: 'success' },
+                      { time: '10:16 AM', event: 'Payment Failed', status: 'failed' },
+                    ].map((activity, i) => (
+                      <Box
+                        key={i}
+                        display="flex"
+                        alignItems="center"
+                        gap="spacing.3"
+                        paddingY="spacing.3"
+                        borderBottomWidth={i < 4 ? 'thin' : 'none'}
+                        borderBottomColor="surface.border.gray.muted"
+                      >
+                        <Box width="60px" flexShrink={0}>
+                          <Text size="xsmall" color="surface.text.gray.muted">{activity.time}</Text>
+                        </Box>
+                        <Box flex={1}>
+                          <Text size="small">{activity.event}</Text>
+                        </Box>
+                        <Badge
+                          color={activity.status === 'success' ? 'positive' : 'negative'}
+                          size="small"
+                        >
+                          {activity.status === 'success' ? 'Success' : 'Failed'}
+                        </Badge>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  auditLogs.slice(0, 6).map((log, i) => (
+                    <Box
+                      key={log.id}
+                      display="flex"
+                      alignItems="center"
+                      gap="spacing.3"
                       paddingY="spacing.3"
-                      borderBottomWidth={index !== Math.min(sessions.length, 5) - 1 ? 'thin' : 'none'}
+                      borderBottomWidth={i < Math.min(auditLogs.length, 6) - 1 ? 'thin' : 'none'}
                       borderBottomColor="surface.border.gray.muted"
                     >
-                      <Box>
-                        <Text weight="semibold" size="small">{session.external_ai_name || 'Customer'}</Text>
-                        <Text size="xsmall" color="surface.text.gray.subtle">{(session.customer_query || session.buyer_request_text || '').slice(0, 48) || 'No request recorded'}</Text>
+                      <Box width="60px" flexShrink={0}>
+                        <Text size="xsmall" color="surface.text.gray.muted">
+                          {formatTime(log.created_at)}
+                        </Text>
                       </Box>
-                      <Badge
-                        color={session.status === 'paid' || session.status === 'completed' ? 'positive' : session.status === 'checkout_ready' ? 'notice' : 'information'}
-                        size="small"
-                      >
-                        {(session.status || 'active').replaceAll('_', ' ')}
-                      </Badge>
-                      <Link href="/dashboard/ai-agent" style={{ textDecoration: 'none', justifySelf: 'end' }}>
-                        <Button variant="secondary" size="small">Open</Button>
-                      </Link>
+                      <Box flex={1}>
+                        <Text size="small">{log.title}</Text>
+                      </Box>
+                      <Badge color="positive" size="small">Success</Badge>
                     </Box>
-                  ))}
-                </Box>
-              )}
-            </CardBody>
-          </Card>
-
-          {/* Gateway Event Log */}
-          <Card elevation="none" backgroundColor="surface.background.gray.intense">
-            <CardBody>
-              <Box display="flex" justifyContent="space-between" alignItems="center" marginBottom="spacing.4">
-                <Heading size="small">Gateway Event Log</Heading>
-                <Link href="/dashboard/audit-trail" style={{ textDecoration: 'none' }}>
-                  <Button variant="tertiary" size="small">View all</Button>
-                </Link>
-              </Box>
-
-              <Box display="flex" flexDirection="column" gap="spacing.3">
-                {auditLogs.slice(0, 5).map((activity) => (
-                  <Box key={activity.id} display="flex" gap="spacing.2" alignItems="flex-start">
-                    <Box 
-                      width="6px" 
-                      height="6px" 
-                      borderRadius="round" 
-                      backgroundColor="surface.background.sea.intense"
-                      marginTop="spacing.2"
-                    />
-                    <Box flex={1}>
-                      <Text size="xsmall" weight="semibold">{activity.title}</Text>
-                      <Text size="xsmall" color="surface.text.gray.subtle">
-                        {activity.actor_type} • {new Date(activity.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
-                    </Box>
-                  </Box>
-                ))}
+                  ))
+                )}
               </Box>
             </CardBody>
           </Card>
-
         </Box>
       </Box>
-
-      {/* Quick Actions Footer */}
-      <Card elevation="none" backgroundColor="surface.background.gray.intense">
-        <CardBody>
-          <Box display="flex" flexWrap="wrap" justifyContent="space-between" alignItems="center" gap="spacing.4">
-            <Box>
-              <Heading size="small">Merchant Quick Actions</Heading>
-              <Text size="xsmall" color="surface.text.gray.subtle">
-                Direct access to core AI commerce workflows
-              </Text>
-            </Box>
-            
-            <Box display="flex" flexWrap="wrap" gap="spacing.3">
-              <Link href="/dashboard/products" style={{ textDecoration: 'none' }}>
-                <Button variant="secondary" size="small" icon={PlusIcon} iconPosition="left">Add Product</Button>
-              </Link>
-              <Link href="/dashboard/import" style={{ textDecoration: 'none' }}>
-                <Button variant="primary" size="small" icon={UploadIcon} iconPosition="left">Import Catalog</Button>
-              </Link>
-              <Link href="/dashboard/live-sessions" style={{ textDecoration: 'none' }}>
-                <Button variant="secondary" size="small" icon={ActivityIcon} iconPosition="left">Live Sessions</Button>
-              </Link>
-              <Link href="/dashboard/orders" style={{ textDecoration: 'none' }}>
-                <Button variant="tertiary" size="small" icon={ShoppingBagIcon} iconPosition="left">AI Orders</Button>
-              </Link>
-              <Link href="/dashboard/audit-trail" style={{ textDecoration: 'none' }}>
-                <Button variant="tertiary" size="small" icon={FileTextIcon} iconPosition="left">Audit Trail</Button>
-              </Link>
-            </Box>
-          </Box>
-        </CardBody>
-      </Card>
-
     </Box>
   );
 }

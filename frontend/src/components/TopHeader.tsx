@@ -1,27 +1,28 @@
 'use client';
 
 import React from 'react';
-import { 
-  Box, 
-  Text, 
-  Avatar, 
-  Badge, 
-  IconButton, 
-  SearchIcon, 
-  BellIcon, 
-  HelpCircleIcon, 
+import {
+  Box,
+  Text,
+  Avatar,
+  Badge,
+  IconButton,
+  SearchIcon,
+  BellIcon,
+  HelpCircleIcon,
   RazorpayIcon,
   SparklesIcon,
-  MenuIcon
+  MenuIcon,
+  ChevronDownIcon,
 } from '@razorpay/blade/components';
 
 export function TopHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
-    <Box 
-      height="56px" 
+    <Box
+      height="56px"
       paddingX={{ base: 'spacing.4', m: 'spacing.6' }}
-      display="flex" 
-      alignItems="center" 
+      display="flex"
+      alignItems="center"
       justifyContent="space-between"
       gap="spacing.2"
       backgroundColor="surface.background.primary.intense"
@@ -53,9 +54,9 @@ export function TopHeader({ onMenuClick }: { onMenuClick?: () => void }) {
       </Box>
 
       {/* Center: Search / Context */}
-      <Box 
-        display={{ base: 'none', m: 'flex' }} 
-        alignItems="center" 
+      <Box
+        display={{ base: 'none', m: 'flex' }}
+        alignItems="center"
         gap="spacing.2"
         paddingX="spacing.3"
         paddingY="spacing.2"
@@ -72,12 +73,12 @@ export function TopHeader({ onMenuClick }: { onMenuClick?: () => void }) {
       {/* Right: Actions & User Info */}
       <Box display="flex" alignItems="center" gap="spacing.4" flexShrink={0} minWidth="0px">
         {/* AI Gateway Status Indicator */}
-        <Box 
-          display={{ base: 'none', l: 'flex' }} 
-          alignItems="center" 
-          gap="spacing.2" 
-          paddingX="spacing.3" 
-          paddingY="spacing.1" 
+        <Box
+          display={{ base: 'none', l: 'flex' }}
+          alignItems="center"
+          gap="spacing.2"
+          paddingX="spacing.3"
+          paddingY="spacing.1"
           borderRadius="max"
           backgroundColor="surface.background.primary.subtle"
         >
@@ -89,24 +90,24 @@ export function TopHeader({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {/* Action Icons */}
         <Box display="flex" alignItems="center" gap="spacing.2">
-          <IconButton 
-            icon={HelpCircleIcon} 
-            accessibilityLabel="Help & Support" 
+          <IconButton
+            icon={HelpCircleIcon}
+            accessibilityLabel="Help & Support"
             size="medium"
-            onClick={() => {}} 
+            onClick={() => {}}
           />
-          <IconButton 
-            icon={BellIcon} 
-            accessibilityLabel="Notifications" 
+          <IconButton
+            icon={BellIcon}
+            accessibilityLabel="Notifications"
             size="medium"
-            onClick={() => {}} 
+            onClick={() => {}}
           />
         </Box>
 
         {/* User Account / Merchant Switcher */}
-        <Box 
-          display="flex" 
-          alignItems="center" 
+        <Box
+          display="flex"
+          alignItems="center"
           gap="spacing.3"
           paddingLeft="spacing.3"
         >

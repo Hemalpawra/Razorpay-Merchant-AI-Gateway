@@ -67,7 +67,7 @@ const NavItem = ({ title, href, icon: Icon, active, badge }: NavItemProps) => (
 );
 
 const NavSection = ({ label }: { label: string }) => (
-  <Box paddingX="spacing.3" paddingTop="spacing.5" paddingBottom="spacing.2" marginBottom="spacing.1">
+  <Box paddingX="spacing.4" paddingTop="spacing.5" paddingBottom="spacing.2" marginBottom="spacing.1">
     <Text size="xsmall" weight="semibold" color="surface.text.gray.muted">
       {label}
     </Text>
@@ -95,7 +95,7 @@ const SidebarContent = () => {
 
         <NavItem title="Dashboard" href="/dashboard" icon={HomeIcon} active={pathname === '/dashboard'} />
         <NavItem title="Products" href="/dashboard/products" icon={PackageIcon} active={isActive('/dashboard/products')} />
-        <NavItem title="Product Import" href="/dashboard/import" icon={UploadIcon} active={isActive('/dashboard/import')} badge={{ label: 'AI Ready', color: 'information' }} />
+        <NavItem title="Product Import" href="/dashboard/import" icon={UploadIcon} active={isActive('/dashboard/import')} />
         <NavItem title="AI Agent" href="/dashboard/ai-agent" icon={SparklesIcon} active={isActive('/dashboard/ai-agent')} />
         <NavItem title="Orders" href="/dashboard/orders" icon={ShoppingBagIcon} active={isActive('/dashboard/orders')} />
 
@@ -141,7 +141,7 @@ export function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
       {/* Static sidebar on large screens */}
       <Box
         display={{ base: 'none', m: 'none', l: 'flex' }}
-        width="220px"
+        width="240px"
         height="100%"
         backgroundColor="surface.background.gray.intense"
         borderRightWidth="thin"
